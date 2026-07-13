@@ -1,33 +1,59 @@
-# MaternaCare-ES: Fine-tuning de LLMs para QA en Ginecología y Obstetricia
+<div align="center">
 
-Repositorio de fine-tuning, evaluación e inferencia de modelos de lenguaje especializados en preguntas y respuestas clínicas de ginecología y obstetricia en español.
+<img src="./public/app-icon.png" alt="MaternaCare-ES logo" width="140" height="140" />
 
-Este repositorio es la contraparte de fine-tuning del proyecto **MaternaQA-es** (creación de dataset). El dataset de entrenamiento está publicado en Hugging Face: [`iue-edu/MaternaCare-ES`](https://huggingface.co/datasets/iue-edu/MaternaCare-ES).
+# MaternaCare-ES
 
-## Arquitectura de Repositorios
+**MaternaCare-ES es un proyecto de fine-tuning de modelos de lenguaje especializados en preguntas y respuestas clínicas de ginecología y obstetricia en español. Entrena, evalúa y publica adapters QLoRA para Gemma 4 y MedGemma 1.5 usando el dataset MaternaQA-es.**
 
-Este proyecto usa una separación de responsabilidades entre **GitHub** (código) y **HuggingFace** (modelos/datasets):
+[![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=for-the-badge&logo=python&logoColor=white&labelColor=1e293b)](https://python.org)
+[![Models](https://img.shields.io/badge/Models-2%20adapters%20QLoRA-8B5CF6?style=for-the-badge&logo=huggingface&logoColor=white&labelColor=1e293b)](https://huggingface.co/iue-edu)
+[![Hugging Face](https://img.shields.io/badge/Hugging%20Face-Models%20%26%20Datasets-FFD21E?style=for-the-badge&logo=huggingface&logoColor=white&labelColor=1e293b)](https://huggingface.co/iue-edu)
+[![Base Models](https://img.shields.io/badge/Base%20Models-Gemma%204%20%7C%20MedGemma-10B3C6?style=for-the-badge&logo=google&logoColor=white&labelColor=1e293b)](https://huggingface.co/google)
+[![Licencia](https://img.shields.io/badge/Licencia-MIT-FACC15?style=for-the-badge&logo=opensourceinitiative&logoColor=black&labelColor=1e293b)](./LICENSE)
 
-| Plataforma | Contenido | Por qué ahí |
-|---|---|---|
-| **GitHub** (este repo) | Código, scripts, configs, documentación | Control de versiones para texto/código |
-| **HuggingFace** | Checkpoints, adapters, datasets, evaluaciones | Soporta archivos grandes (>100MB) vía LFS |
+[Modelos Publicados](#modelos-publicados) · [Entrenamiento](#entrenamiento-qlora) · [Inferencia](#inferencia) · [Evaluación](#métricas-de-evaluación) · [Reproducibilidad](#reproducibilidad)
 
-> **Nota**: Los checkpoints de entrenamiento completos (optimizer state, pesos, etc.) se preservan en HuggingFace, no en GitHub. Esto permite que cualquier investigador descargue el estado exacto del entrenamiento para reanudarlo o auditarlo.
+</div>
+
+---
+
+> [!IMPORTANT]
+> Este repositorio documenta el proceso completo de fine-tuning de modelos de lenguaje para QA clínico en español. Incluye scripts de entrenamiento QLoRA, inferencia, evaluación con métricas automáticas (ROUGE, BERTScore, RAGAS) y publicación de adapters en Hugging Face.
+
+## ¿Qué es MaternaCare-ES?
+
+**MaternaCare-ES** es un proyecto de investigación que aplica técnicas de fine-tuning a modelos de lenguaje de última generación para crear asistentes especializados en preguntas y respuestas clínicas sobre salud materna y perinatal en español.
+
+El proyecto incluye:
+
+- **Scripts reproducibles** de entrenamiento QLoRA con TRL y PEFT.
+- **Adapters entrenados** para Gemma 4 E2B y MedGemma 1.5 4B.
+- **Evaluaciones completas** con métricas automáticas (ROUGE, BERTScore, Exact Match, RAGAS).
+- **Checkpoints intermedios** para reanudar entrenamiento o auditar el proceso.
+- **Documentación técnica** de decisiones de arquitectura y hiperparámetros.
+
+> [!NOTE]
+> El dataset de entrenamiento utilizado es **MaternaQA-es** (5.727 pares Q+A en español), disponible en Hugging Face: [`iue-edu/MaternaQA-es`](https://huggingface.co/datasets/iue-edu/MaternaQA-es).
 
 ## Modelos Publicados
 
-Los adapters QLoRA entrenados están disponibles en HuggingFace. Cada repositorio contiene:
-- **Adapter final** (`adapter_model.safetensors`) para inferencia
-- **Checkpoints intermedios** (`checkpoint-637/`, `checkpoint-1274/`) para reanudar entrenamiento
-- **Configs de entrenamiento** (`adapter_config.json`, `training_args.bin`)
-- **Evaluaciones** (`test_predictions.jsonl`, `test_eval.jsonl`)
-- **Logs de TensorBoard** (`runs/`)
+Los adapters QLoRA entrenados están disponibles en Hugging Face. Cada repositorio contiene el adapter final, checkpoints intermedios, configuraciones de entrenamiento, evaluaciones y logs de TensorBoard.
 
-- **Gemma 4 QLoRA**: [`iue-edu/MaternaCare-ES-gemma4-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-gemma4-qlora)
-- **MedGemma 1.5 4B QLoRA**: [`iue-edu/MaternaCare-ES-medgemma-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-medgemma-qlora)
+| Modelo Base | Adapter QLoRA | Parámetros | Uso |
+|-------------|---------------|------------|-----|
+| **Gemma 4 E2B IT** | [`iue-edu/MaternaCare-ES-gemma4-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-gemma4-qlora) | 2B | QA clínico general |
+| **MedGemma 1.5 4B IT** | [`iue-edu/MaternaCare-ES-medgemma-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-medgemma-qlora) | 4B | QA clínico con enfoque médico |
 
-### Descargar checkpoints para reproducibilidad
+### Contenido de cada repositorio
+
+- **Adapter final** (`adapter_model.safetensors`) para inferencia directa.
+- **Checkpoints intermedios** (`checkpoint-637/`, `checkpoint-1274/`) para reanudar entrenamiento.
+- **Configuraciones** (`adapter_config.json`, `training_args.bin`) con hiperparámetros exactos.
+- **Evaluaciones** (`test_predictions.jsonl`, `test_eval.jsonl`) con predicciones y métricas.
+- **Logs de TensorBoard** (`runs/`) para visualizar el entrenamiento.
+
+### Descargar adapters
 
 ```bash
 # Instala huggingface-cli
@@ -36,64 +62,135 @@ pip install huggingface-hub
 # Descarga el adapter completo (incluye checkpoints)
 huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora --local-dir outputs/gemma4-grounded
 
-# Descarga solo el adapter final (más ligero)
+# Descarga solo el adapter final (más ligero, ~200MB)
 huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora adapter_config.json adapter_model.safetensors --local-dir outputs/gemma4-grounded
 ```
 
-## Modelos Base
+## Arquitectura Híbrida
 
-- **Gemma 4 IT**: `google/gemma-4-E2B-it`
-- **MedGemma 1.5 4B IT**: `google/medgemma-1.5-4b-it`
+Este proyecto usa una separación de responsabilidades entre **GitHub** (código) y **Hugging Face** (artefactos pesados):
+
+| Plataforma | Contenido | Razón |
+|------------|-----------|-------|
+| **GitHub** (este repo) | Scripts, configs, documentación | Control de versiones para código |
+| **Hugging Face** | Adapters, checkpoints, dataset externo y logs | Soporta archivos >100MB vía LFS |
+
+> [!TIP]
+> Los checkpoints completos (optimizer state, pesos) se preservan en Hugging Face. Esto permite que cualquier investigador descargue el estado exacto del entrenamiento para reanudarlo o auditarlo.
 
 ## Estructura del Repositorio
 
-```
-scripts/                # Scripts de entrenamiento, inferencia y evaluación
-  train_qlora_trl.py           # Entrenamiento QLoRA con TRL
-  inference_qlora.py           # Inferencia con modelo QLoRA fine-tuneado
-  inference_base.py          # Inferencia con modelo base (baseline)
-  evaluate_model_predictions.py   # Evaluación de predicciones
-  evaluate_qa_with_ragas.py       # Evaluación con RAGAS
-  convert_eval_to_csv.py          # Conversión de evaluaciones a CSV
-  backfill_prediction_metadata.py # Metadatos de predicciones
-outputs/               # Pesos, checkpoints y evaluaciones generadas
-  gemma4-grounded/     # Adapter y evaluaciones de Gemma 4 grounded
-  medgemma-grounded/   # Adapter y evaluaciones de MedGemma grounded
-  smoke-gemma4/        # Smoke test de Gemma 4
-  smoke-medgemma/      # Smoke test de MedGemma
-  gemma4-base/         # Evaluaciones del modelo base
-  medgemma-base/       # Evaluaciones del modelo base
-  logs/                # Logs de ejecución
-csv_outputs/           # Resultados agregados en CSV (wide_comparison, master_eval, etc.)
-datasets/              # Dataset de entrenamiento (publication y final)
-  obstetrics/qa/publication/    # Variant lists publicadas (sft_grounded, sft_closed_book, qa_flat_jsonl)
-  obstetrics/qa/final/         # Archivos raw y SFT previos a la publicación
-docs/research_notes/   # Notas técnicas del proyecto
-papers/                # Documentos y borradores del paper
+```text
+MaternaCare-ES/
+├── scripts/                           # Entrenamiento, inferencia y evaluación
+│   ├── train_qlora_trl.py             # Entrenamiento QLoRA con TRL
+│   ├── inference_qlora.py             # Inferencia con adapter QLoRA
+│   ├── inference_base.py              # Inferencia con modelo base (baseline)
+│   ├── evaluate_model_predictions.py  # Evaluación de predicciones
+│   ├── evaluate_qa_with_ragas.py      # Evaluación con RAGAS
+│   ├── convert_eval_to_csv.py         # Conversión de evaluaciones a CSV
+│   └── backfill_prediction_metadata.py
+├── outputs/                           # Pesos, checkpoints y evaluaciones
+│   ├── gemma4-grounded/               # Adapter Gemma 4 grounded
+│   ├── medgemma-grounded/             # Adapter MedGemma grounded
+│   ├── smoke-gemma4/                  # Smoke test Gemma 4
+│   ├── smoke-medgemma/                # Smoke test MedGemma
+│   ├── gemma4-base/                   # Baseline Gemma 4
+│   ├── medgemma-base/                 # Baseline MedGemma
+│   └── logs/                          # Logs de ejecución
+├── datasets/                          # Mirror local opcional de MaternaQA-es
+│   └── obstetrics/qa/publication/     # Variantes SFT publicadas
+├── csv_outputs/                       # Resultados agregados en CSV
+├── docs/research_notes/               # Notas técnicas del proyecto
+├── papers/                            # Documentos del paper
+└── requirements.txt
 ```
 
-## Dependencias
+## Uso Rápido
+
+### 1. Instalar dependencias
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate
+git clone https://github.com/JhonHander/MaternaCare-ES.git
+cd MaternaCare-ES
+python -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-## Uso
+> [!NOTE]
+> Para descargar modelos de Hugging Face se requiere `HF_TOKEN`. Los modelos Gemma 4 y MedGemma son **gated** — necesitas aceptar los términos en huggingface.co antes de usarlos.
 
-### Entrenamiento (QLoRA)
+### 2. Verificar setup con smoke test (~3 min)
 
 ```bash
 python scripts/train_qlora_trl.py \
   --model-name google/gemma-4-E2B-it \
   --dataset-variant sft_grounded \
-  --output-dir outputs/gemma4-grounded \
-  --epochs 1 \
-  --lora-r 32 --lora-alpha 64
+  --output-dir outputs/smoke-gemma4 \
+  --max-steps 10 \
+  --train-limit 64 \
+  --eval-limit 32
 ```
 
-### Inferencia
+## Entrenamiento QLoRA
+
+El entrenamiento usa QLoRA (Quantized Low-Rank Adaptation) para fine-tuning eficiente en GPU consumer.
+
+### Requisitos
+
+- [ ] `pip install -r requirements.txt`
+- [ ] `huggingface-cli login` o `export HF_TOKEN=<tu_token>`
+- [ ] Aceptar términos de Gemma 4 / MedGemma en Hugging Face
+- [ ] GPU NVIDIA con ≥ 16 GB VRAM
+
+### Entrenamiento completo (~2–4 h según GPU)
+
+**Gemma 4 E2B:**
+
+```bash
+# Grounded (recomendado) — contexto + pregunta → respuesta
+python scripts/train_qlora_trl.py \
+  --model-name google/gemma-4-E2B-it \
+  --dataset-variant sft_grounded \
+  --output-dir outputs/gemma4-grounded \
+  --epochs 2 \
+  --lora-r 32 --lora-alpha 64
+
+# Closed-book — solo pregunta → respuesta
+python scripts/train_qlora_trl.py \
+  --model-name google/gemma-4-E2B-it \
+  --dataset-variant sft_closed_book \
+  --output-dir outputs/gemma4-closed-book
+```
+
+**MedGemma 1.5 4B:**
+
+```bash
+# Grounded (recomendado)
+python scripts/train_qlora_trl.py \
+  --model-name google/medgemma-1.5-4b-it \
+  --dataset-variant sft_grounded \
+  --output-dir outputs/medgemma-grounded
+
+# Closed-book
+python scripts/train_qlora_trl.py \
+  --model-name google/medgemma-1.5-4b-it \
+  --dataset-variant sft_closed_book \
+  --output-dir outputs/medgemma-closed-book
+```
+
+> **¿Qué hace el script?** Carga el modelo en 4 bits, entrena adapters LoRA (r=32, alpha=64) sobre todas las capas lineales, calcula pérdida solo sobre la respuesta esperada, y guarda solo los adapters (~200MB). El modelo base no se modifica.
+
+### Variantes del dataset
+
+| Variante | Entrada del modelo | Cuándo usar |
+|----------|-------------------|-------------|
+| `sft_grounded` | Contexto clínico + Pregunta → Respuesta | **Recomendado.** El modelo razona sobre evidencia documental. |
+| `sft_closed_book` | Solo Pregunta → Respuesta | Evalúa internalización del dominio sin contexto explícito. |
+
+## Inferencia
+
+Genera predicciones sobre el split de test con un adapter entrenado:
 
 ```bash
 python scripts/inference_qlora.py \
@@ -103,34 +200,51 @@ python scripts/inference_qlora.py \
   --output-path outputs/gemma4-grounded/test_predictions.jsonl
 ```
 
-### Evaluación con RAGAS
+Para comparar contra el modelo base (sin fine-tuning):
 
 ```bash
-python scripts/evaluate_qa_with_ragas.py \
+python scripts/inference_base.py \
+  --model-name google/gemma-4-E2B-it \
+  --dataset-variant sft_grounded \
+  --split test \
+  --output-path outputs/gemma4-base/test_predictions.jsonl
+```
+
+## Métricas de Evaluación
+
+El proyecto evalúa las predicciones con múltiples métricas automáticas para capturar diferentes aspectos de la calidad:
+
+| Métrica | Qué mide | Rango |
+|---------|----------|-------|
+| **ROUGE-1** | Solapamiento léxico (unigramas) | 0–1 |
+| **ROUGE-L** | Solapamiento por secuencia más larga | 0–1 |
+| **BERTScore F1** | Similitud semántica basada en embeddings | 0–1 |
+| **Exact Match** | Coincidencia exacta de la respuesta | 0–1 |
+| **RAGAS** | Calidad de generación en QA (faithfulness, relevancia) | 0–1 |
+
+### Evaluación de predicciones
+
+```bash
+# Métricas automáticas (ROUGE, BERTScore, Exact Match)
+python scripts/evaluate_model_predictions.py \
   --input outputs/gemma4-grounded/test_predictions.jsonl \
   --output outputs/gemma4-grounded/test_eval.jsonl
+
+# Evaluación con RAGAS (faithfulness, answer relevancy)
+python scripts/evaluate_qa_with_ragas.py \
+  --input outputs/gemma4-grounded/test_predictions.jsonl \
+  --output outputs/gemma4-grounded/test_ragas.jsonl
 ```
-
-## Dataset
-
-El dataset se carga por defecto desde Hugging Face:
-
-```python
-from datasets import load_dataset
-dataset = load_dataset("iue-edu/MaternaCare-ES")
-```
-
-Para uso offline, las variantes también están disponibles localmente en `datasets/obstetrics/qa/publication/`.
 
 ## Reproducibilidad
 
 ### Replicar el entrenamiento desde cero
 
 ```bash
-# 1. Dataset (automático desde HF)
+# 1. Entrenamiento (el dataset se descarga automáticamente desde HF)
 python scripts/train_qlora_trl.py \
   --model-name google/gemma-4-E2B-it \
-  --dataset-hf-id iue-edu/MaternaCare-ES \
+  --dataset-hf-id iue-edu/MaternaQA-es \
   --dataset-variant sft_grounded \
   --output-dir outputs/gemma4-grounded \
   --epochs 2 \
@@ -138,43 +252,80 @@ python scripts/train_qlora_trl.py \
   --lr 2e-4 \
   --warmup-steps 100
 
-# 2. Inferencia
+# 2. Inferencia sobre el split de test
 python scripts/inference_qlora.py \
   --model-path outputs/gemma4-grounded \
-  --dataset-hf-id iue-edu/MaternaCare-ES \
+  --dataset-hf-id iue-edu/MaternaQA-es \
   --dataset-variant sft_grounded \
   --split test
 
 # 3. Evaluación
-python scripts/evaluate_qa_with_ragas.py \
+python scripts/evaluate_model_predictions.py \
   --input outputs/gemma4-grounded/test_predictions.jsonl
 ```
 
 ### Reanudar entrenamiento desde checkpoint
 
 ```bash
-# Descarga el checkpoint de HF
-huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora checkpoint-1274/ --local-dir outputs/gemma4-grounded
+# Descarga el checkpoint desde Hugging Face
+huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora \
+  checkpoint-1274/ --local-dir outputs/gemma4-grounded
 
-# Resume training (el script detecta el checkpoint automáticamente)
+# Reanuda el entrenamiento (el script detecta el checkpoint automáticamente)
 python scripts/train_qlora_trl.py \
   --model-name google/gemma-4-E2B-it \
   --resume-from-checkpoint outputs/gemma4-grounded/checkpoint-1274 \
-  ...
+  --dataset-variant sft_grounded \
+  --output-dir outputs/gemma4-grounded
 ```
 
-## Métricas de Evaluación
+## Dataset
 
-- **ROUGE-1 / ROUGE-L**: Métricas de solapamiento léxico
-- **BERTScore F1**: Similitud semántica basada en embeddings
-- **Exact Match**: Coincidencia exacta de la respuesta
-- **RAGAS**: Evaluación de calidad de generación en QA
+El dataset de entrenamiento es **MaternaQA-es** (5.727 pares Q+A en español sobre salud materna):
+
+```python
+from datasets import load_dataset
+
+dataset = load_dataset("iue-edu/MaternaQA-es")
+# Split: train (5093), validation (306), test (328)
+```
+
+| Split | Pares Q+A | Chunks fuente | PDFs fuente |
+|:------|----------:|--------------:|------------:|
+| Entrenamiento | 5.093 | 1.744 | 52 |
+| Validación | 306 | 101 | 2 |
+| Test | 328 | 108 | 3 |
+| **Total** | **5.727** | **1.953** | **57** |
+
+> [!NOTE]
+> El dataset completo, su metodología de construcción y los PDFs fuente están documentados en el repositorio [MaternaQA-es](https://github.com/NicolasHoyosDevss/MaternaQA-es).
+
+## Documentación
+
+| Documento | Descripción |
+|-----------|-------------|
+| [Notas de investigación](./docs/research_notes/) | Decisiones técnicas, gotchas y seguimiento del proyecto. |
+| [Planeación del paper](./papers/README.md) | Posicionamiento, contribuciones y estrategia de escritura. |
+| [Dataset MaternaQA-es](https://github.com/NicolasHoyosDevss/MaternaQA-es) | Metodología de construcción del dataset de entrenamiento. |
+
+## Consideraciones Éticas y de Uso
+
+- Los modelos entrenados son recursos de investigación; **no reemplazan criterio clínico** ni guías médicas oficiales.
+- Las predicciones generadas deben interpretarse como asistencia para investigación, no como recomendaciones médicas.
+- El dataset y los modelos se publican bajo licencia MIT. Antes de usar en sistemas reales, se requiere validación clínica independiente.
 
 ## Licencia
 
-Este proyecto es parte de la investigación de la **Institución Universitaria de Envigado (IUE)**.
+Este proyecto se distribuye bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más detalles.
 
-## Contacto
+---
 
-- Organización Hugging Face: [https://huggingface.co/iue-edu](https://huggingface.co/iue-edu)
-- Repositorio original (dataset): [NicolasHoyosDevss/MaternaQA-es](https://github.com/NicolasHoyosDevss/MaternaQA-es)
+<div align="center">
+
+**Institución Universitaria de Envigado (IUE)** · **MinCiencias** · Colombia
+
+Fine-tuning de LLMs para QA clínico en español sobre embarazo y maternidad.
+
+[Hugging Face](https://huggingface.co/iue-edu) · [Dataset MaternaQA-es](https://github.com/NicolasHoyosDevss/MaternaQA-es)
+
+</div>

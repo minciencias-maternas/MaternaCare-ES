@@ -28,6 +28,7 @@ from typing import Any
 
 
 DATASET_ROOT = Path("datasets/obstetrics/qa/publication")
+DEFAULT_DATASET_HF_ID = "iue-edu/MaternaQA-es"
 
 
 def remove_project_root_from_imports() -> None:
@@ -89,11 +90,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--dataset-hf-id",
-        default=None,
+        default=DEFAULT_DATASET_HF_ID,
         help=(
-            "ID de Hugging Face del dataset (ej: iue-edu/MaternaCare-ES). "
+            "ID de Hugging Face del dataset (ej: iue-edu/MaternaQA-es). "
             "Si se proporciona, carga desde HF usando la variante como subset. "
-            "Si no, usa --dataset-root en modo local."
+            "Usa un valor vacío para cargar desde --dataset-root en modo local."
         ),
     )
     parser.add_argument(

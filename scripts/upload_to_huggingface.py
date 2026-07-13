@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """
-Upload MaternaCare-ES artifacts to HuggingFace.
+Upload MaternaQA-es dataset and MaternaCare-ES model artifacts to Hugging Face.
 
 Usage:
     export HF_TOKEN=$(huggingface-cli whoami --token)
     /path/to/venv/bin/python scripts/upload_to_huggingface.py
 
 What it uploads:
-1. Dataset   -> iue-edu/MaternaCare-ES
+1. Dataset   -> iue-edu/MaternaQA-es
 2. Gemma4 QLoRA adapter -> iue-edu/MaternaCare-ES-gemma4-qlora
 3. MedGemma QLoRA adapter -> iue-edu/MaternaCare-ES-medgemma-qlora
 """
@@ -19,6 +19,7 @@ from huggingface_hub import HfApi, upload_folder
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
 HF_ORG = "iue-edu"
+DATASET_REPO_ID = f"{HF_ORG}/MaternaQA-es"
 
 def upload_dataset():
     """Upload the obstetrics QA dataset as a folder-based dataset."""
@@ -29,14 +30,14 @@ def upload_dataset():
     if not readme_path.exists():
         readme_path.write_text(DATASET_CARD_MD, encoding="utf-8")
 
-    repo_id = f"{HF_ORG}/MaternaCare-ES"
+    repo_id = DATASET_REPO_ID
     api.create_repo(repo_id=repo_id, repo_type="dataset", exist_ok=True)
     print(f"[1/3] Uploading dataset to {repo_id} …")
     url = upload_folder(
         folder_path=str(dataset_dir),
         repo_id=repo_id,
         repo_type="dataset",
-        commit_message="feat(dataset): initial upload of MaternaCare-ES obstetrics QA corpus",
+        commit_message="feat(dataset): publish MaternaQA-es obstetrics QA corpus",
     )
     print(f"    -> {url}")
 
@@ -87,42 +88,63 @@ dataset_info:
       dtype: string
   splits:
     - name: train
-      num_examples: ~2800
+      num_examples: 5093
     - name: validation
-      num_examples: ~350
+      num_examples: 306
     - name: test
-      num_examples: ~350
+      num_examples: 328
   config_names:
-    - publication
+    - sft_closed_book
+    - sft_grounded
+    - qa_flat_jsonl
     - final
 tags:
   - medical-qa
   - obstetrics
   - spanish
   - maternology
-  - qlora
+  - maternal-health
+  - question-answering
+  - synthetic-data
   - maternaqa
 license: apache-2.0
 ---
 
-# MaternaCare-ES Dataset
+# MaternaQA-es Dataset
 
-**MaternaCare-ES** es un corpus de preguntas y respuestas clínicas en español
-extraído de textos de obstetricia de libre acceso.
+**MaternaQA-es** is a Spanish synthetic clinical question-answering dataset
+focused on pregnancy, maternal health, labor, postpartum care, fetal monitoring,
+and related perinatal topics.
 
-## Estructura
+The canonical source repository is
+[`NicolasHoyosDevss/MaternaQA-es`](https://github.com/NicolasHoyosDevss/MaternaQA-es).
+The fine-tuning repository that consumes this dataset is
+[`JhonHander/MaternaCare-ES`](https://github.com/JhonHander/MaternaCare-ES).
 
-- `publication/` — splits en JSONL para publicación (qa_flat_jsonl, sft_closed_book, sft_grounded)
-- `final/` — splits train/validation/test con evaluación RAGAS
+## Dataset Structure
 
-## Uso con `datasets`
+- `publication/sft_closed_book/` — question to answer supervised fine-tuning format.
+- `publication/sft_grounded/` — context plus question to answer supervised fine-tuning format.
+- `publication/qa_flat_jsonl/` — flat records with metadata for audit and analysis.
+- `final/` — final train/validation/test generation outputs and summary metadata.
+
+## Splits
+
+| Split | QA pairs | Source chunks | Source PDFs |
+|:------|---------:|--------------:|------------:|
+| train | 5,093 | 1,744 | 52 |
+| validation | 306 | 101 | 2 |
+| test | 328 | 108 | 3 |
+| total | 5,727 | 1,953 | 57 |
+
+## Usage
 
 ```python
 from datasets import load_dataset
-dataset = load_dataset("iue-edu/MaternaCare-ES", "final")
+dataset = load_dataset("iue-edu/MaternaQA-es", "sft_grounded")
 ```
 
-## Modelos entrenados
+## Related Fine-Tuned Models
 
 - `iue-edu/MaternaCare-ES-gemma4-qlora`
 - `iue-edu/MaternaCare-ES-medgemma-qlora`
@@ -143,14 +165,14 @@ license: apache-2.0
 
 # MaternaCare-ES Gemma 4 QLoRA
 
-LoRA adapter fine-tuned on **MaternaCare-ES** using **RAFT** methodology
+LoRA adapter fine-tuned on **MaternaQA-es** using **RAFT** methodology
 with **google/gemma-4-E2B-it** base model.
 
 ## Training details
 
 - Method: QLoRA (4-bit NF4, double quant, page optimiser)
 - Base model: `google/gemma-4-E2B-it`
-- Dataset: `iue-edu/MaternaCare-ES`
+- Dataset: `iue-edu/MaternaQA-es`
 - Epochs: 2
 - Batch size: 1 (gradient accumulation 4)
 - Max length: 1024
@@ -182,14 +204,14 @@ license: apache-2.0
 
 # MaternaCare-ES MedGemma 1.5 4B QLoRA
 
-LoRA adapter fine-tuned on **MaternaCare-ES** using **RAFT** methodology
+LoRA adapter fine-tuned on **MaternaQA-es** using **RAFT** methodology
 with **google/medgemma-1.5-4b-it** base model.
 
 ## Training details
 
 - Method: QLoRA (4-bit NF4, double quant, page optimiser)
 - Base model: `google/medgemma-1.5-4b-it`
-- Dataset: `iue-edu/MaternaCare-ES`
+- Dataset: `iue-edu/MaternaQA-es`
 - Epochs: 2
 - Batch size: 1 (gradient accumulation 4)
 - Max length: 1024
@@ -223,6 +245,6 @@ if __name__ == "__main__":
     )
 
     print("\n✅ All uploads complete.")
-    print("   Dataset : https://huggingface.co/datasets/iue-edu/MaternaCare-ES")
+    print("   Dataset : https://huggingface.co/datasets/iue-edu/MaternaQA-es")
     print("   Gemma4  : https://huggingface.co/iue-edu/MaternaCare-ES-gemma4-qlora")
     print("   MedGemma: https://huggingface.co/iue-edu/MaternaCare-ES-medgemma-qlora")

@@ -29,6 +29,7 @@ from typing import Any, Literal
 
 
 DATASET_ROOT = Path("datasets/obstetrics/qa/publication")
+DEFAULT_DATASET_HF_ID = "iue-edu/MaternaQA-es"
 DATASET_VARIANTS = ("sft_closed_book", "sft_grounded")
 SPLITS = ("train", "validation", "test")
 
@@ -120,11 +121,11 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument(
         "--dataset-hf-id",
-        default=None,
+        default=DEFAULT_DATASET_HF_ID,
         help=(
-            "ID de Hugging Face del dataset (ej: iue-edu/MaternaCare-ES). "
+            "ID de Hugging Face del dataset (ej: iue-edu/MaternaQA-es). "
             "Si se proporciona, carga desde HF usando la variante como subset. "
-            "Si no, usa --dataset-root en modo local."
+            "Usa un valor vacío para cargar desde --dataset-root en modo local."
         ),
     )
     parser.add_argument(
