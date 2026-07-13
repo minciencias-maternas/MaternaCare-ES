@@ -1,0 +1,25 @@
+{
+  "script_version": "model_prediction_eval_v2_resumable",
+  "generated_at": "2026-06-01T02:03:20.863639+00:00",
+  "input_file": "outputs\\gemma4-base\\test_predictions.jsonl",
+  "detail_file": "outputs\\gemma4-base\\test_eval_sample10.jsonl",
+  "sampled_predictions": 10,
+  "metrics": [
+    "faithfulness",
+    "answer_relevancy",
+    "answer_correctness",
+    "semantic_similarity"
+  ],
+  "ragas_models": {
+    "llm_model": "gpt-5.4-mini",
+    "embedding_model": "text-embedding-3-small"
+  },
+  "summary": {
+    "predictions_evaluated": 10,
+    "predictions_with_error": 3,
+    "avg_faithfulness": 0.3188,
+    "avg_answer_relevancy": 0.8113,
+    "avg_answer_correctness": 0.6376,
+    "avg_semantic_similarity": 0.7884
+  }
+}

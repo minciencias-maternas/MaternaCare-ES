@@ -1,0 +1,54 @@
+{
+  "source_dir": "datasets/obstetrics/qa/final",
+  "output_dir": "datasets/obstetrics/qa/publication",
+  "removed_fields": [
+    "answer_relevancy",
+    "faithfulness",
+    "quality_reason",
+    "quality_verdict",
+    "roundtrip_consistency"
+  ],
+  "splits": {
+    "train": {
+      "pairs": 5093,
+      "unique_qa_ids": 5093,
+      "unique_chunks": 1744,
+      "unique_source_pdfs": 52
+    },
+    "validation": {
+      "pairs": 306,
+      "unique_qa_ids": 306,
+      "unique_chunks": 101,
+      "unique_source_pdfs": 2
+    },
+    "test": {
+      "pairs": 328,
+      "unique_qa_ids": 328,
+      "unique_chunks": 108,
+      "unique_source_pdfs": 3
+    }
+  },
+  "files": {
+    "train": {
+      "qa_flat_jsonl": "datasets/obstetrics/qa/publication/qa_flat_jsonl/train.jsonl",
+      "sft_closed_book": "datasets/obstetrics/qa/publication/sft_closed_book/train.jsonl",
+      "sft_grounded": "datasets/obstetrics/qa/publication/sft_grounded/train.jsonl"
+    },
+    "validation": {
+      "qa_flat_jsonl": "datasets/obstetrics/qa/publication/qa_flat_jsonl/validation.jsonl",
+      "sft_closed_book": "datasets/obstetrics/qa/publication/sft_closed_book/validation.jsonl",
+      "sft_grounded": "datasets/obstetrics/qa/publication/sft_grounded/validation.jsonl"
+    },
+    "test": {
+      "qa_flat_jsonl": "datasets/obstetrics/qa/publication/qa_flat_jsonl/test.jsonl",
+      "sft_closed_book": "datasets/obstetrics/qa/publication/sft_closed_book/test.jsonl",
+      "sft_grounded": "datasets/obstetrics/qa/publication/sft_grounded/test.jsonl"
+    },
+    "all": {
+      "qa_flat_jsonl": "datasets/obstetrics/qa/publication/qa_flat_jsonl/all.jsonl"
+    }
+  },
+  "counts": {
+    "qa_flat_jsonl_all": 5727
+  }
+}

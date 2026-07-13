@@ -1,0 +1,26 @@
+{
+  "script_version": "model_prediction_eval_v2_resumable",
+  "generated_at": "2026-07-08T08:02:24.951437+00:00",
+  "input_file": "outputs/medgemma-grounded/test_predictions.jsonl",
+  "detail_file": "outputs/medgemma-grounded/test_eval.jsonl",
+  "sampled_predictions": 328,
+  "metrics": [
+    "faithfulness",
+    "answer_relevancy",
+    "answer_correctness",
+    "semantic_similarity"
+  ],
+  "ragas_models": {
+    "llm_model": "gpt-5.4-mini",
+    "embedding_model": "text-embedding-3-small",
+    "max_completion_tokens": 2048
+  },
+  "summary": {
+    "predictions_evaluated": 328,
+    "predictions_with_error": 6,
+    "avg_faithfulness": 0.3865,
+    "avg_answer_relevancy": 0.7634,
+    "avg_answer_correctness": 0.5656,
+    "avg_semantic_similarity": 0.7872
+  }
+}

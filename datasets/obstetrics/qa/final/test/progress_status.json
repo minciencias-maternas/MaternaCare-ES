@@ -1,0 +1,19 @@
+{
+  "updated_at": "2026-05-19T00:51:54.726048+00:00",
+  "state": "complete",
+  "total_chunks": 108,
+  "already_processed_at_start": 0,
+  "pending_at_start": 108,
+  "processed_now": 108,
+  "failed_now": 0,
+  "completed_now": 108,
+  "remaining_now": 0,
+  "qa_pairs_now": 328,
+  "last_chunk_id": "vol831_1_00005",
+  "last_status": "ok",
+  "elapsed_seconds": 110,
+  "eta_seconds": 0,
+  "raw_output": "datasets/obstetrics/qa/final/final_gpt52_test_raw.jsonl",
+  "sft_output": "datasets/obstetrics/qa/final/final_gpt52_test_sft.jsonl",
+  "progress_file": "datasets/obstetrics/qa/final/final_gpt52_test_progress.json"
+}

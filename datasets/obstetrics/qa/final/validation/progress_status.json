@@ -1,0 +1,19 @@
+{
+  "updated_at": "2026-05-19T00:49:56.568833+00:00",
+  "state": "complete",
+  "total_chunks": 101,
+  "already_processed_at_start": 0,
+  "pending_at_start": 101,
+  "processed_now": 101,
+  "failed_now": 0,
+  "completed_now": 101,
+  "remaining_now": 0,
+  "qa_pairs_now": 306,
+  "last_chunk_id": "protocolo_atencion_obstetrica_00038",
+  "last_status": "ok",
+  "elapsed_seconds": 100,
+  "eta_seconds": 0,
+  "raw_output": "datasets/obstetrics/qa/final/final_gpt52_validation_raw.jsonl",
+  "sft_output": "datasets/obstetrics/qa/final/final_gpt52_validation_sft.jsonl",
+  "progress_file": "datasets/obstetrics/qa/final/final_gpt52_validation_progress.json"
+}

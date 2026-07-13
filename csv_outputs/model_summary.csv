@@ -1,0 +1,5 @@
+model_label,model_name,model_role,dataset_variant,adapter_dir,predictions_evaluated,predictions_with_error,avg_faithfulness,avg_answer_relevancy,avg_answer_correctness,avg_semantic_similarity
+gemma4-base,google/gemma-4-E2B-it,base,sft_grounded,,328,1,0.3998,0.8144,0.6322,0.7739
+gemma4-grounded,google/gemma-4-E2B-it,grounded,sft_grounded,outputs/gemma4-grounded,328,1,0.7268,0.7184,0.7258,0.8608
+medgemma-base,google/medgemma-1.5-4b-it,base,sft_grounded,,328,5,0.2366,0.8207,0.5118,0.7487
+medgemma-grounded,google/medgemma-1.5-4b-it,grounded,sft_grounded,outputs/medgemma-grounded,328,6,0.3865,0.7634,0.5656,0.7872

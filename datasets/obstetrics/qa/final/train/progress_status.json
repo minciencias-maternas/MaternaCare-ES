@@ -1,0 +1,19 @@
+{
+  "updated_at": "2026-05-19T00:25:53.288835+00:00",
+  "state": "complete",
+  "total_chunks": 1744,
+  "already_processed_at_start": 27,
+  "pending_at_start": 1717,
+  "processed_now": 1717,
+  "failed_now": 0,
+  "completed_now": 1717,
+  "remaining_now": 0,
+  "qa_pairs_now": 5015,
+  "last_chunk_id": "guia_completa_embarazo_parto_2013_00105",
+  "last_status": "ok",
+  "elapsed_seconds": 1562,
+  "eta_seconds": 0,
+  "raw_output": "datasets/obstetrics/qa/final/final_gpt52_train_raw.jsonl",
+  "sft_output": "datasets/obstetrics/qa/final/final_gpt52_train_sft.jsonl",
+  "progress_file": "datasets/obstetrics/qa/final/final_gpt52_train_progress.json"
+}

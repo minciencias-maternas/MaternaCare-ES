@@ -1,0 +1,33 @@
+{
+  "models": {
+    "generator_model": "gpt-5.2",
+    "verifier_model": null
+  },
+  "total": 101,
+  "skipped": 0,
+  "processed": 101,
+  "failed": 0,
+  "qa_pairs": 306,
+  "grounding": {
+    "avg_context_answer_overlap": 0.689,
+    "low_grounding_pairs": 2,
+    "total_pairs": 306,
+    "low_grounding_rate": 0.0065
+  },
+  "quality": {
+    "enabled": false,
+    "verifier_model": null,
+    "pairs_evaluated": 0,
+    "pairs_accepted": null,
+    "acceptance_rate": null,
+    "avg_faithfulness": null,
+    "avg_answer_relevancy": null,
+    "avg_roundtrip_consistency": null,
+    "quality_filter_enabled": null,
+    "thresholds": {
+      "min_faithfulness": null,
+      "min_relevancy": null,
+      "min_roundtrip": null
+    }
+  }
+}

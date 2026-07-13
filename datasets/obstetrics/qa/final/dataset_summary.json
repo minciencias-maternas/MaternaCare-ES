@@ -1,0 +1,43 @@
+{
+  "train": {
+    "raw_pairs": 5093,
+    "sft_pairs": 5093,
+    "unique_chunks_with_qa": 1744,
+    "source_files": {
+      "raw": "datasets/obstetrics/qa/final/train/raw.jsonl",
+      "sft": "datasets/obstetrics/qa/final/train/sft.jsonl",
+      "generation_report": "datasets/obstetrics/qa/final/train/generation_report.json",
+      "progress": "datasets/obstetrics/qa/final/train/progress.json",
+      "progress_status": "datasets/obstetrics/qa/final/train/progress_status.json"
+    }
+  },
+  "validation": {
+    "raw_pairs": 306,
+    "sft_pairs": 306,
+    "unique_chunks_with_qa": 101,
+    "source_files": {
+      "raw": "datasets/obstetrics/qa/final/validation/raw.jsonl",
+      "sft": "datasets/obstetrics/qa/final/validation/sft.jsonl",
+      "generation_report": "datasets/obstetrics/qa/final/validation/generation_report.json",
+      "progress": "datasets/obstetrics/qa/final/validation/progress.json",
+      "progress_status": "datasets/obstetrics/qa/final/validation/progress_status.json"
+    }
+  },
+  "test": {
+    "raw_pairs": 328,
+    "sft_pairs": 328,
+    "unique_chunks_with_qa": 108,
+    "source_files": {
+      "raw": "datasets/obstetrics/qa/final/test/raw.jsonl",
+      "sft": "datasets/obstetrics/qa/final/test/sft.jsonl",
+      "generation_report": "datasets/obstetrics/qa/final/test/generation_report.json",
+      "progress": "datasets/obstetrics/qa/final/test/progress.json",
+      "progress_status": "datasets/obstetrics/qa/final/test/progress_status.json"
+    }
+  },
+  "total": {
+    "raw_pairs": 5727,
+    "sft_pairs": 5727,
+    "unique_chunks_with_qa": 1953
+  }
+}
