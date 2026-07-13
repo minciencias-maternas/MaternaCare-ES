@@ -2,7 +2,7 @@
 
 <img src="./public/app-icon.png" alt="MaternaCare-ES logo" width="140" height="140" />
 
-# MaternaCare
+# MaternaCare-ES
 
 **MaternaCare-ES es un proyecto de fine-tuning de modelos de lenguaje especializados en preguntas y respuestas clínicas de ginecología y obstetricia en español. Entrena, evalúa y publica adapters QLoRA para Gemma 4 y MedGemma 1.5 usando el dataset MaternaQA-es.**
 
