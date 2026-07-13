@@ -4,6 +4,13 @@ Repositorio de fine-tuning, evaluación e inferencia de modelos de lenguaje espe
 
 Este repositorio es la contraparte de fine-tuning del proyecto **MaternaQA-es** (creación de dataset). El dataset de entrenamiento está publicado en Hugging Face: [`iue-edu/MaternaCare-ES`](https://huggingface.co/datasets/iue-edu/MaternaCare-ES).
 
+## Modelos Publicados
+
+Los adapters QLoRA entrenados están disponibles en HuggingFace:
+
+- **Gemma 4 QLoRA**: [`iue-edu/MaternaCare-ES-gemma4-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-gemma4-qlora)
+- **MedGemma 1.5 4B QLoRA**: [`iue-edu/MaternaCare-ES-medgemma-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-medgemma-qlora)
+
 ## Modelos Base
 
 - **Gemma 4 IT**: `google/gemma-4-E2B-it`
