@@ -106,6 +106,24 @@ def parse_args() -> argparse.Namespace:
         "--max-new-tokens", type=int, default=512,
     )
     parser.add_argument(
+        "--tokenizer-source",
+        choices=("adapter", "base"),
+        default="adapter",
+        help="Carga el tokenizer/chat template desde el adapter o desde el modelo base.",
+    )
+    parser.add_argument(
+        "--repetition-penalty",
+        type=float,
+        default=None,
+        help="Penalizacion opcional para reducir loops de generacion.",
+    )
+    parser.add_argument(
+        "--no-repeat-ngram-size",
+        type=int,
+        default=0,
+        help="Tamaño de n-grama que no puede repetirse durante la generacion.",
+    )
+    parser.add_argument(
         "--temperature", type=float, default=0.7,
     )
     parser.add_argument(
@@ -172,11 +190,15 @@ def load_model_and_tokenizer(
         bnb_4bit_compute_dtype=compute_dtype,
     )
 
+    tokenizer_path = adapter_dir if args.tokenizer_source == "adapter" else base_model
     tokenizer = stack["AutoTokenizer"].from_pretrained(
-        base_model,
+        tokenizer_path,
         trust_remote_code=args.trust_remote_code,
         token=os.environ.get("HF_TOKEN"),
     )
+    chat_template_file = adapter_dir / "chat_template.jinja"
+    if args.tokenizer_source == "adapter" and chat_template_file.exists():
+        tokenizer.chat_template = chat_template_file.read_text(encoding="utf-8")
     if tokenizer.pad_token is None and tokenizer.eos_token is not None:
         tokenizer.pad_token = tokenizer.eos_token
 
@@ -205,6 +227,7 @@ def load_model_and_tokenizer(
 
     print(f"Modelo base: {base_model}")
     print(f"Adapter cargado desde: {adapter_dir}")
+    print(f"Tokenizer cargado desde: {tokenizer_path}")
     return model, tokenizer, base_model
 
 
@@ -369,6 +392,10 @@ def generate_prediction(
     if args.do_sample:
         generation_kwargs["temperature"] = args.temperature
         generation_kwargs["top_p"] = args.top_p
+    if args.repetition_penalty is not None:
+        generation_kwargs["repetition_penalty"] = args.repetition_penalty
+    if args.no_repeat_ngram_size > 0:
+        generation_kwargs["no_repeat_ngram_size"] = args.no_repeat_ngram_size
 
     with torch.no_grad():
         generated_ids = model.generate(
