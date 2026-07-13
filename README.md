@@ -4,12 +4,41 @@ Repositorio de fine-tuning, evaluación e inferencia de modelos de lenguaje espe
 
 Este repositorio es la contraparte de fine-tuning del proyecto **MaternaQA-es** (creación de dataset). El dataset de entrenamiento está publicado en Hugging Face: [`iue-edu/MaternaCare-ES`](https://huggingface.co/datasets/iue-edu/MaternaCare-ES).
 
+## Arquitectura de Repositorios
+
+Este proyecto usa una separación de responsabilidades entre **GitHub** (código) y **HuggingFace** (modelos/datasets):
+
+| Plataforma | Contenido | Por qué ahí |
+|---|---|---|
+| **GitHub** (este repo) | Código, scripts, configs, documentación | Control de versiones para texto/código |
+| **HuggingFace** | Checkpoints, adapters, datasets, evaluaciones | Soporta archivos grandes (>100MB) vía LFS |
+
+> **Nota**: Los checkpoints de entrenamiento completos (optimizer state, pesos, etc.) se preservan en HuggingFace, no en GitHub. Esto permite que cualquier investigador descargue el estado exacto del entrenamiento para reanudarlo o auditarlo.
+
 ## Modelos Publicados
 
-Los adapters QLoRA entrenados están disponibles en HuggingFace:
+Los adapters QLoRA entrenados están disponibles en HuggingFace. Cada repositorio contiene:
+- **Adapter final** (`adapter_model.safetensors`) para inferencia
+- **Checkpoints intermedios** (`checkpoint-637/`, `checkpoint-1274/`) para reanudar entrenamiento
+- **Configs de entrenamiento** (`adapter_config.json`, `training_args.bin`)
+- **Evaluaciones** (`test_predictions.jsonl`, `test_eval.jsonl`)
+- **Logs de TensorBoard** (`runs/`)
 
 - **Gemma 4 QLoRA**: [`iue-edu/MaternaCare-ES-gemma4-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-gemma4-qlora)
 - **MedGemma 1.5 4B QLoRA**: [`iue-edu/MaternaCare-ES-medgemma-qlora`](https://huggingface.co/iue-edu/MaternaCare-ES-medgemma-qlora)
+
+### Descargar checkpoints para reproducibilidad
+
+```bash
+# Instala huggingface-cli
+pip install huggingface-hub
+
+# Descarga el adapter completo (incluye checkpoints)
+huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora --local-dir outputs/gemma4-grounded
+
+# Descarga solo el adapter final (más ligero)
+huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora adapter_config.json adapter_model.safetensors --local-dir outputs/gemma4-grounded
+```
 
 ## Modelos Base
 
@@ -92,6 +121,47 @@ dataset = load_dataset("iue-edu/MaternaCare-ES")
 ```
 
 Para uso offline, las variantes también están disponibles localmente en `datasets/obstetrics/qa/publication/`.
+
+## Reproducibilidad
+
+### Replicar el entrenamiento desde cero
+
+```bash
+# 1. Dataset (automático desde HF)
+python scripts/train_qlora_trl.py \
+  --model-name google/gemma-4-E2B-it \
+  --dataset-hf-id iue-edu/MaternaCare-ES \
+  --dataset-variant sft_grounded \
+  --output-dir outputs/gemma4-grounded \
+  --epochs 2 \
+  --lora-r 32 --lora-alpha 64 \
+  --lr 2e-4 \
+  --warmup-steps 100
+
+# 2. Inferencia
+python scripts/inference_qlora.py \
+  --model-path outputs/gemma4-grounded \
+  --dataset-hf-id iue-edu/MaternaCare-ES \
+  --dataset-variant sft_grounded \
+  --split test
+
+# 3. Evaluación
+python scripts/evaluate_qa_with_ragas.py \
+  --input outputs/gemma4-grounded/test_predictions.jsonl
+```
+
+### Reanudar entrenamiento desde checkpoint
+
+```bash
+# Descarga el checkpoint de HF
+huggingface-cli download iue-edu/MaternaCare-ES-gemma4-qlora checkpoint-1274/ --local-dir outputs/gemma4-grounded
+
+# Resume training (el script detecta el checkpoint automáticamente)
+python scripts/train_qlora_trl.py \
+  --model-name google/gemma-4-E2B-it \
+  --resume-from-checkpoint outputs/gemma4-grounded/checkpoint-1274 \
+  ...
+```
 
 ## Métricas de Evaluación
 

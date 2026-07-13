@@ -49,3 +49,27 @@ medical-peft/data/raw/**/*.zip
 medical-peft/data/raw/**/*.gz
 medical-peft/data/raw/**/*.tar
 medical-peft/data/raw/**/*.bz2
+
+# ML model artifacts (large binaries) — keep in HuggingFace, not GitHub
+*.safetensors
+*.pt
+*.pth
+*.bin
+*.ckpt
+*.h5
+*.onnx
+*.gguf
+tokenizer.json
+optimizer.pt
+scheduler.pt
+rng_state.pth
+training_args.bin
+trainer_state.json
+checkpoint-*/
+runs/
+
+# Evaluation outputs can be large
+*.jsonl
+test_predictions.jsonl
+test_eval.jsonl
+smoke_*.jsonl
