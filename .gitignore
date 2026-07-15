@@ -73,3 +73,10 @@ runs/
 test_predictions.jsonl
 test_eval.jsonl
 smoke_*.jsonl
+
+# Canonical benchmark snapshots are intentionally versioned.
+!datasets/obstetrics/corpus/chunks.jsonl
+
+# Rebuildable benchmark outputs and dense indexes.
+outputs/rag_benchmark/
+artifacts/rag_benchmark/indexes/
