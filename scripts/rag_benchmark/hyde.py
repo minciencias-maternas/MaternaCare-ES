@@ -6,7 +6,7 @@ import hashlib
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable, Protocol, Sequence
+from typing import Any, Callable, Protocol, Sequence
 
 from .data import BenchmarkSample
 from .generation import GenerationResult
@@ -24,6 +24,7 @@ class HypotheticalRecord:
     sample_id: str
     question_sha256: str
     model_id: str
+    generator_identity: dict[str, Any]
     text: str
     measurement: GenerationMeasurement
     cache_hit: bool
@@ -33,7 +34,9 @@ def question_fingerprint(question: str) -> str:
     return hashlib.sha256(question.encode("utf-8")).hexdigest()
 
 
-def load_hyde_cache(path: Path, model_id: str) -> dict[str, HypotheticalRecord]:
+def load_hyde_cache(
+    path: Path, model_id: str, generator_identity: dict[str, Any] | None = None
+) -> dict[str, HypotheticalRecord]:
     if not path.exists():
         return {}
     records: dict[str, HypotheticalRecord] = {}
@@ -44,7 +47,10 @@ def load_hyde_cache(path: Path, model_id: str) -> dict[str, HypotheticalRecord]:
             continue
         try:
             row = json.loads(line)
-            if row.get("model_id") != model_id:
+            row_identity = row.get("generator_identity")
+            if row.get("model_id") != model_id or (
+                generator_identity is not None and row_identity != generator_identity
+            ):
                 continue
             measurement = GenerationMeasurement(
                 input_tokens=int(row["input_tokens"]),
@@ -57,6 +63,7 @@ def load_hyde_cache(path: Path, model_id: str) -> dict[str, HypotheticalRecord]:
                 sample_id=str(row["sample_id"]),
                 question_sha256=str(row["question_sha256"]),
                 model_id=model_id,
+                generator_identity=dict(row_identity or {"model": model_id}),
                 text=str(row["text"]),
                 measurement=measurement,
                 cache_hit=True,
@@ -73,11 +80,12 @@ def prepare_hypothetical_documents(
     samples: Sequence[BenchmarkSample],
     cache_path: Path,
     model_id: str,
+    generator_identity: dict[str, Any],
     generator_factory: Callable[[], HypotheticalGenerator],
 ) -> dict[str, HypotheticalRecord]:
     """Generate only cache misses using a dedicated generator factory."""
 
-    cached = load_hyde_cache(cache_path, model_id)
+    cached = load_hyde_cache(cache_path, model_id, generator_identity)
     records: dict[str, HypotheticalRecord] = {}
     missing: list[BenchmarkSample] = []
     for sample in samples:
@@ -100,6 +108,7 @@ def prepare_hypothetical_documents(
                     sample_id=sample.qa_id,
                     question_sha256=question_fingerprint(sample.question),
                     model_id=model_id,
+                    generator_identity=generator_identity,
                     text=generated.text,
                     measurement=generated.measurement,
                     cache_hit=False,
@@ -108,6 +117,7 @@ def prepare_hypothetical_documents(
                     "sample_id": record.sample_id,
                     "question_sha256": record.question_sha256,
                     "model_id": record.model_id,
+                    "generator_identity": record.generator_identity,
                     "text": record.text,
                     **record.measurement.to_dict(),
                 }

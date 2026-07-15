@@ -1,33 +1,37 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import subprocess
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 from typing import Any
+from unittest.mock import patch
 
 from scripts.rag_benchmark.data import (
     BenchmarkSample,
+    CorpusChunk,
     load_corpus,
+    load_jsonl_dataset,
     load_maternaqa_test,
     load_sample10,
     validate_reference_chunks,
 )
 from scripts.rag_benchmark.cli import build_parser, config_from_args
-from scripts.rag_benchmark.generation import GenerationResult
+from scripts.rag_benchmark.generation import GenerationResult, GenerationSettings, OpenAIHydeGenerator
 from scripts.rag_benchmark.hyde import prepare_hypothetical_documents
 from scripts.rag_benchmark.hyde import load_hyde_cache
 from scripts.rag_benchmark.metrics import METRIC_FIELDS, METRIC_NAMES, RagasEvaluator, build_metrics
-from scripts.rag_benchmark.retrieval import reciprocal_rank_fusion
+from scripts.rag_benchmark.retrieval import DenseRetriever, reciprocal_rank_fusion
 from scripts.rag_benchmark.runner import retrieve_for_strategy
-from scripts.rag_benchmark.runner import _experiment_configuration, _output_paths, _read_jsonl, run_benchmark
+from scripts.rag_benchmark.runner import _experiment_configuration, _hyde_cache_path, _hyde_identity, _output_paths, _read_jsonl, run_benchmark
 from scripts.rag_benchmark.telemetry import GenerationMeasurement, combine_system_measurements
 
 
 ROOT = Path(__file__).resolve().parents[1]
-SAMPLE10 = ROOT / "datasets/Preguntas y Respuestas.xlsx"
+SAMPLE10 = ROOT / "datasets/sample10.jsonl"
 MATERNAQA_TEST = ROOT / "datasets/obstetrics/qa/publication/qa_flat_jsonl/test.jsonl"
 CORPUS = ROOT / "datasets/obstetrics/corpus/chunks.jsonl"
 
@@ -38,10 +42,24 @@ class CanonicalDataTests(unittest.TestCase):
         cls.samples = load_maternaqa_test(MATERNAQA_TEST)
         cls.corpus = load_corpus(CORPUS)
 
-    def test_xlsx_loader_returns_ten_rows(self) -> None:
+    def test_sample10_jsonl_loader_returns_verified_ten_rows(self) -> None:
         rows = load_sample10(SAMPLE10)
         self.assertEqual(10, len(rows))
         self.assertTrue(all(row.question and row.reference for row in rows))
+        self.assertEqual("sample10_001", rows[0].qa_id)
+        self.assertEqual("DATA_GT", rows[0].metadata["section"])
+
+    def test_runtime_dataset_loader_has_no_xlsx_parser(self) -> None:
+        source = (ROOT / "scripts/rag_benchmark/data.py").read_text(encoding="utf-8")
+        self.assertNotIn("zipfile", source)
+        self.assertNotIn("ElementTree", source)
+
+    def test_jsonl_loader_rejects_null_required_scalars(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            path = Path(temp_dir) / "invalid.jsonl"
+            path.write_text('{"qa_id": null, "pregunta": "q", "respuesta": "r"}\n', encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "null required fields"):
+                load_jsonl_dataset(path)
 
     def test_maternaqa_loader_returns_328_unique_ids(self) -> None:
         self.assertEqual(328, len(self.samples))
@@ -54,6 +72,109 @@ class CanonicalDataTests(unittest.TestCase):
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_dense_retriever_reports_missing_lancedb_dependency_lazily(self) -> None:
+        with patch.dict(sys.modules, {"lancedb": None}):
+            with self.assertRaisesRegex(RuntimeError, "Install lancedb"):
+                DenseRetriever.load_or_build(
+                    [CorpusChunk("chunk-1", "text")],
+                    Path("unused"),
+                    "test/model",
+                    "revision",
+                )
+
+    def test_dense_retriever_uses_lancedb_exact_search_and_stable_identity(self) -> None:
+        class FakeQuery:
+            def __init__(self, rows: list[dict[str, Any]], vector: list[float]) -> None:
+                self.rows = rows
+                self.vector = vector
+                self.metric: str | None = None
+                self.k: int | None = None
+
+            def distance_type(self, metric: str) -> "FakeQuery":
+                self.metric = metric
+                return self
+
+            def limit(self, k: int) -> "FakeQuery":
+                self.k = k
+                return self
+
+            def to_list(self) -> list[dict[str, Any]]:
+                return [{**row, "_distance": index / 10} for index, row in enumerate(self.rows[: self.k])]
+
+        class FakeTable:
+            def __init__(self, rows: list[dict[str, Any]]) -> None:
+                self.rows = rows
+                self.query: FakeQuery | None = None
+
+            def search(self, vector: list[float]) -> FakeQuery:
+                self.query = FakeQuery(self.rows, vector)
+                return self.query
+
+        class FakeDatabase:
+            def __init__(self) -> None:
+                self.tables: dict[str, FakeTable] = {}
+
+            def open_table(self, name: str) -> FakeTable:
+                if name not in self.tables:
+                    raise ValueError("table does not exist")
+                return self.tables[name]
+
+            def create_table(self, name: str, data: list[dict[str, Any]]) -> FakeTable:
+                table = FakeTable(data)
+                self.tables[name] = table
+                return table
+
+        class FakeLanceDB:
+            def __init__(self) -> None:
+                self.database = FakeDatabase()
+                self.paths: list[str] = []
+
+            def connect(self, path: str) -> FakeDatabase:
+                self.paths.append(path)
+                return self.database
+
+        class FakeEncoder:
+            model_name = "test/model"
+
+            def __init__(self) -> None:
+                self.calls: list[list[str]] = []
+
+            def encode(self, texts: list[str]) -> list[list[float]]:
+                self.calls.append(texts)
+                return [[3.0, 4.0] for _ in texts]
+
+        fake_lancedb = FakeLanceDB()
+        previous_module = sys.modules.get("lancedb")
+        sys.modules["lancedb"] = fake_lancedb  # type: ignore[assignment]
+        chunks = [
+            CorpusChunk("chunk-1", "first", {"section": "A"}),
+            CorpusChunk("chunk-2", "second", {"section": "B"}),
+        ]
+        try:
+            with tempfile.TemporaryDirectory() as temp_dir:
+                encoder = FakeEncoder()
+                first = DenseRetriever.load_or_build(chunks, Path(temp_dir) / "lancedb", "test/model", "revision", encoder=encoder)
+                second = DenseRetriever.load_or_build(chunks, Path(temp_dir) / "lancedb", "test/model", "revision", encoder=encoder)
+                self.assertEqual([["first", "second"]], encoder.calls)
+                self.assertIs(first._table, second._table)
+                row = first._table.rows[0]
+                self.assertEqual(
+                    {"vector", "chunk_id", "text", "metadata", "corpus_sha256", "embedding_model", "embedding_revision", "embedding_dimension", "normalized"},
+                    set(row),
+                )
+                self.assertEqual({"section": "A"}, json.loads(row["metadata"]))
+                self.assertEqual(("test/model", "revision", 2, True), (row["embedding_model"], row["embedding_revision"], row["embedding_dimension"], row["normalized"]))
+                results = first.search("question", 1)
+                self.assertEqual("chunk-1", results[0].chunk_id)
+                self.assertEqual("cosine", first._table.query.metric)
+                self.assertEqual(1, first._table.query.k)
+                self.assertEqual([0.6, 0.8], first._table.query.vector)
+        finally:
+            if previous_module is None:
+                del sys.modules["lancedb"]
+            else:
+                sys.modules["lancedb"] = previous_module
+
     def test_hybrid_rank_fusion_is_deterministic(self) -> None:
         rankings = [["chunk_b", "chunk_a", "chunk_c"], ["chunk_a", "chunk_b", "chunk_c"]]
         first = reciprocal_rank_fusion(rankings, k=3)
@@ -96,6 +217,7 @@ class RetrievalTests(unittest.TestCase):
                 [sample],
                 Path(temp_dir) / "hyde.jsonl",
                 "independent/hyde-model",
+                {"provider": "fake", "model": "independent/hyde-model", "prompt": "test", "generation": {}},
                 lambda: hyde_generator,
             )
         dense = FakeDenseRetriever()
@@ -111,6 +233,72 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual(0, answer_generator.calls)
         self.assertEqual("hypothetical clinical document", dense.query)
 
+    def test_openai_hyde_uses_responses_api_usage_and_observed_latency(self) -> None:
+        calls: list[dict[str, Any]] = []
+
+        class Usage:
+            input_tokens = 17
+            output_tokens = 9
+
+        class Response:
+            status = "completed"
+            incomplete_details = None
+            output_text = "documento clínico hipotético"
+            usage = Usage()
+
+        class Responses:
+            def create(self, **kwargs: Any) -> Response:
+                calls.append(kwargs)
+                return Response()
+
+        class Client:
+            responses = Responses()
+            closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        client = Client()
+        result = OpenAIHydeGenerator(client, "gpt-5-mini-2025-08-07", GenerationSettings(max_new_tokens=77)).hypothetical_document("¿Pregunta?")
+        self.assertEqual((17, 9, 26), (result.measurement.input_tokens, result.measurement.output_tokens, result.measurement.total_tokens))
+        self.assertGreaterEqual(result.measurement.generation_latency_seconds, 0.0)
+        self.assertEqual("gpt-5-mini-2025-08-07", calls[0]["model"])
+        self.assertEqual(77, calls[0]["max_output_tokens"])
+        self.assertFalse(calls[0]["store"])
+        self.assertNotIn("temperature", calls[0])
+        self.assertNotIn("top_p", calls[0])
+        self.assertIn("documento clínico", calls[0]["input"])
+        OpenAIHydeGenerator(client, "gpt-5-mini-2025-08-07", GenerationSettings()).close()
+        self.assertTrue(client.closed)
+
+    def test_openai_hyde_rejects_incomplete_responses_before_returning_text(self) -> None:
+        class Usage:
+            input_tokens = 17
+            output_tokens = 9
+
+        class Response:
+            output_text = "partial document"
+            usage = Usage()
+
+            def __init__(self, status: str, incomplete_details: object | None = None) -> None:
+                self.status = status
+                self.incomplete_details = incomplete_details
+
+        class Responses:
+            def __init__(self, response: Response) -> None:
+                self.response = response
+
+            def create(self, **kwargs: Any) -> Response:
+                return self.response
+
+        class Client:
+            def __init__(self, response: Response) -> None:
+                self.responses = Responses(response)
+
+        for response in (Response("incomplete"), Response("completed", {"reason": "max_output_tokens"})):
+            with self.assertRaisesRegex(RuntimeError, "non-completed|incomplete HyDE"):
+                OpenAIHydeGenerator(Client(response), "gpt-5-mini-2025-08-07", GenerationSettings()).hypothetical_document("q")
+
 
 class TelemetryTests(unittest.TestCase):
     def test_token_and_timing_formulas(self) -> None:
@@ -123,6 +311,13 @@ class TelemetryTests(unittest.TestCase):
         self.assertEqual(3.0, combined["generation_latency_seconds"])
         self.assertEqual(3.5, combined["end_to_end_latency_seconds"])
         self.assertEqual(10.0, combined["output_tokens_per_second"])
+
+    def test_cache_hit_hyde_telemetry_is_historical_not_current_run_usage(self) -> None:
+        answer = GenerationMeasurement.from_counts(100, 20, 2.0)
+        cached_hyde = GenerationMeasurement.from_counts(40, 10, 1.0)
+        combined = combine_system_measurements(answer, 0.5, cached_hyde, hypothetical_cache_hit=True)
+        self.assertEqual((100, 20, 120), (combined["input_tokens"], combined["output_tokens"], combined["total_tokens"]))
+        self.assertEqual(2.0, combined["generation_latency_seconds"])
 
 
 class RagasTests(unittest.TestCase):
@@ -240,7 +435,7 @@ class CorrectionTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as temp_dir:
             config = self.config(temp_dir)
             identity = _experiment_configuration(config)
-            self.assertEqual(("registry_remote", "4328cf26390c98c5e3c738b4460a05b95f4911f5"), (identity["answer"]["adapter_provenance"], identity["retrieval"]["revision"]))
+            self.assertEqual(("registry_remote", "0c6f0d0ea8f284b9070c3ffaa50677440943f984"), (identity["answer"]["adapter_provenance"], identity["retrieval"]["revision"]))
             for options in (("--retrieval-k", "9"), ("--retrieval-embedding-revision", "other"), ("--max-new-tokens", "9"), ("--evaluator-model", "other"), ("--embedding-model", "other"), ("--strategy", "hyde")):
                 changed = self.config(temp_dir, *options); self.assertNotEqual(_output_paths(config, identity), _output_paths(changed, _experiment_configuration(changed)))
             local = Path(temp_dir) / "adapter"; local.mkdir(); (local / "adapter_config.json").touch(); (local / "adapter_model.safetensors").touch()
@@ -264,8 +459,44 @@ class CorrectionTests(unittest.TestCase):
 
     def test_dense_cache_identity_includes_encoder_revision(self) -> None:
         source = (ROOT / "scripts/rag_benchmark/retrieval.py").read_text()
-        for expression in ("SentenceTransformer(model_name, revision=revision", "safe_name(model_name) / safe_name(revision)", 'manifest.get("revision") == revision', '"revision": revision'):
+        for expression in (
+            "SentenceTransformer(model_name, revision=revision",
+            "safe_name(model_name), safe_name(revision), fingerprint[:16]",
+            '"embedding_revision": revision',
+            '"corpus_sha256": fingerprint',
+        ):
             self.assertIn(expression, source)
+
+    def test_hyde_identity_prevents_cross_provider_cache_reuse(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = self.config(temp_dir, "--strategy", "hyde")
+            identity = _hyde_identity(config)
+            self.assertEqual("openai", identity["provider"])
+            self.assertIn("documento clínico", identity["prompt"])
+            hf_config = self.config(temp_dir, "--strategy", "hyde", "--hyde-provider", "huggingface")
+            self.assertNotEqual(_hyde_cache_path(config), _hyde_cache_path(hf_config))
+            path = Path(temp_dir) / "hyde.jsonl"
+            path.write_text(json.dumps({
+                "sample_id": "q", "question_sha256": "x", "model_id": config.hyde_generator_model,
+                "generator_identity": identity, "text": "document", "input_tokens": 1,
+                "output_tokens": 1, "total_tokens": 2, "generation_latency_seconds": 1,
+                "output_tokens_per_second": 1,
+            }) + "\n", encoding="utf-8")
+            self.assertIn("q", load_hyde_cache(path, config.hyde_generator_model, identity))
+            self.assertNotIn("q", load_hyde_cache(path, config.hyde_generator_model, {**identity, "provider": "huggingface"}))
+
+    def test_openai_cache_identity_ignores_huggingface_only_flags(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = self.config(temp_dir, "--strategy", "hyde")
+            changed = self.config(
+                temp_dir,
+                "--strategy", "hyde",
+                "--no-hyde-load-in-4bit",
+                "--trust-remote-code",
+                "--attn-implementation", "flash_attention_2",
+            )
+            self.assertEqual(_hyde_identity(config), _hyde_identity(changed))
+            self.assertEqual(_hyde_cache_path(config), _hyde_cache_path(changed))
 
     def test_generation_timing_starts_before_prompt_preparation(self) -> None:
         source = (ROOT / "scripts/rag_benchmark/generation.py").read_text()
@@ -286,6 +517,23 @@ class CliTests(unittest.TestCase):
         result = self.run_cli("--help")
         self.assertIn("--dataset-mode", result.stdout)
         self.assertIn("--hyde-generator-model", result.stdout)
+
+    def test_sample10_default_uses_jsonl_snapshot(self) -> None:
+        args = build_parser().parse_args(
+            ["--dataset-mode", "sample10", "--strategy", "no_rag", "--model", "gemma4_base"]
+        )
+        self.assertEqual(Path("datasets/sample10.jsonl"), args.sample10_path)
+        self.assertEqual("BAAI/bge-m3", args.retrieval_embedding_model)
+        self.assertEqual("0c6f0d0ea8f284b9070c3ffaa50677440943f984", args.retrieval_embedding_revision)
+        self.assertEqual("text-embedding-3-large", args.embedding_model)
+        config = config_from_args(args)
+        self.assertEqual(("openai", "gpt-5-mini-2025-08-07"), (config.hyde_provider, config.hyde_generator_model))
+
+    def test_hyde_default_model_follows_provider(self) -> None:
+        args = build_parser().parse_args(
+            ["--dataset-mode", "sample10", "--strategy", "hyde", "--model", "gemma4_base", "--hyde-provider", "huggingface"]
+        )
+        self.assertEqual("Qwen/Qwen2.5-1.5B-Instruct", config_from_args(args).hyde_generator_model)
 
     def test_both_dataset_modes_validate_without_models_or_api_clients(self) -> None:
         common = ("--strategy", "no_rag", "--model", "gemma4_base", "--validate-data-only")

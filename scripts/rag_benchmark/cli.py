@@ -12,10 +12,10 @@ from .model_registry import MODEL_REGISTRY
 from .runner import BenchmarkConfig, load_and_validate_data, run_benchmark
 
 
-DEFAULT_SAMPLE10 = Path("datasets/Preguntas y Respuestas.xlsx")
+DEFAULT_SAMPLE10 = Path("datasets/sample10.jsonl")
 DEFAULT_MATERNAQA = Path("datasets/obstetrics/qa/publication/qa_flat_jsonl/test.jsonl")
 DEFAULT_CORPUS = Path("datasets/obstetrics/corpus/chunks.jsonl")
-DEFAULT_INDEX_DIR = Path("artifacts/rag_benchmark/indexes")
+DEFAULT_INDEX_DIR = Path("artifacts/rag_benchmark/lancedb")
 DEFAULT_OUTPUT_DIR = Path("outputs/rag_benchmark")
 
 
@@ -34,14 +34,19 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--retrieval-k", type=int, default=5)
     parser.add_argument(
         "--retrieval-embedding-model",
-        default="sentence-transformers/paraphrase-multilingual-mpnet-base-v2",
+        default="BAAI/bge-m3",
     )
-    parser.add_argument("--retrieval-embedding-revision", default="4328cf26390c98c5e3c738b4460a05b95f4911f5")
+    parser.add_argument("--retrieval-embedding-revision", default="0c6f0d0ea8f284b9070c3ffaa50677440943f984")
     parser.add_argument("--retrieval-device", default="cpu")
     parser.add_argument("--retrieval-batch-size", type=int, default=32)
-    parser.add_argument("--hyde-generator-model", default="Qwen/Qwen2.5-1.5B-Instruct")
+    parser.add_argument("--hyde-provider", choices=("openai", "huggingface"), default="openai")
+    parser.add_argument(
+        "--hyde-generator-model",
+        default=None,
+        help="HyDE model; defaults to the selected provider's pinned model.",
+    )
     parser.add_argument("--evaluator-model", default="gpt-5.4-mini")
-    parser.add_argument("--embedding-model", default="text-embedding-3-small")
+    parser.add_argument("--embedding-model", default="text-embedding-3-large")
     parser.add_argument("--evaluator-max-completion-tokens", type=int, default=2048)
     parser.add_argument("--evaluator-timeout-seconds", type=int, default=180)
     parser.add_argument("--adapter-path", type=Path, default=None)
@@ -72,6 +77,11 @@ def build_parser() -> argparse.ArgumentParser:
 
 
 def config_from_args(args: argparse.Namespace) -> BenchmarkConfig:
+    hyde_generator_model = args.hyde_generator_model or (
+        DEFAULT_OPENAI_HYDE_MODEL
+        if args.hyde_provider == "openai"
+        else DEFAULT_HUGGINGFACE_HYDE_MODEL
+    )
     generation = GenerationSettings(
         max_new_tokens=args.max_new_tokens,
         do_sample=args.do_sample,
@@ -102,7 +112,8 @@ def config_from_args(args: argparse.Namespace) -> BenchmarkConfig:
         retrieval_embedding_revision=args.retrieval_embedding_revision,
         retrieval_device=args.retrieval_device,
         retrieval_batch_size=args.retrieval_batch_size,
-        hyde_generator_model=args.hyde_generator_model,
+        hyde_generator_model=hyde_generator_model,
+        hyde_provider=args.hyde_provider,
         evaluator_model=args.evaluator_model,
         embedding_model=args.embedding_model,
         evaluator_max_completion_tokens=args.evaluator_max_completion_tokens,
@@ -141,3 +152,5 @@ def main() -> None:
     output_jsonl, summary = asyncio.run(run_benchmark(config))
     print(f"Per-sample output: {output_jsonl}")
     print(f"Summary: {summary}")
+DEFAULT_OPENAI_HYDE_MODEL = "gpt-5-mini-2025-08-07"
+DEFAULT_HUGGINGFACE_HYDE_MODEL = "Qwen/Qwen2.5-1.5B-Instruct"

@@ -73,11 +73,10 @@ class SentenceTransformerEncoder:
 
 
 class DenseRetriever:
-    """Cosine-similarity retrieval over a persistent normalized embedding matrix."""
+    """Exact cosine retrieval over a local LanceDB table with normalized vectors."""
 
-    def __init__(self, chunks: Sequence[CorpusChunk], embeddings: Any, encoder: TextEncoder) -> None:
-        self._chunks = list(chunks)
-        self._embeddings = embeddings
+    def __init__(self, table: Any, encoder: TextEncoder) -> None:
+        self._table = table
         self._encoder = encoder
 
     @classmethod
@@ -92,71 +91,75 @@ class DenseRetriever:
         encoder: TextEncoder | None = None,
     ) -> "DenseRetriever":
         try:
-            import numpy as np
+            import lancedb
         except ImportError as exc:
-            raise RuntimeError("Install numpy to use dense retrieval") from exc
+            raise RuntimeError(
+                "Install lancedb to use persistent dense retrieval (for example: pip install lancedb)"
+            ) from exc
 
         encoder = encoder or SentenceTransformerEncoder(model_name, revision, device=device, batch_size=batch_size)
-        model_dir = index_dir / safe_name(model_name) / safe_name(revision)
-        manifest_path = model_dir / "manifest.json"
-        embeddings_path = model_dir / "embeddings.npy"
         fingerprint = corpus_fingerprint(chunks)
-        expected_ids = [chunk.chunk_id for chunk in chunks]
+        table_name = "chunks_" + "_".join(
+            (safe_name(model_name), safe_name(revision), fingerprint[:16])
+        )
+        database = lancedb.connect(str(index_dir))
 
-        embeddings = None
-        if manifest_path.exists() and embeddings_path.exists():
-            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-            if (
-                manifest.get("model_name") == model_name
-                and manifest.get("revision") == revision
-                and manifest.get("corpus_sha256") == fingerprint
-                and manifest.get("chunk_ids") == expected_ids
-            ):
-                candidate = np.load(embeddings_path, allow_pickle=False)
-                if candidate.shape[0] == len(chunks):
-                    embeddings = candidate
-
-        if embeddings is None:
-            model_dir.mkdir(parents=True, exist_ok=True)
-            embeddings = np.asarray(encoder.encode([chunk.text for chunk in chunks]), dtype=np.float32)
-            if embeddings.ndim != 2 or embeddings.shape[0] != len(chunks):
+        try:
+            table = database.open_table(table_name)
+        except (FileNotFoundError, KeyError, ValueError):
+            vectors = _normalized_vectors(encoder.encode([chunk.text for chunk in chunks]))
+            if len(vectors) != len(chunks):
                 raise ValueError("Dense encoder returned an invalid corpus matrix")
-            np.save(embeddings_path, embeddings, allow_pickle=False)
-            manifest_path.write_text(
-                json.dumps(
-                    {
-                        "model_name": model_name,
-                        "revision": revision,
-                        "corpus_sha256": fingerprint,
-                        "chunk_ids": expected_ids,
-                    },
-                    ensure_ascii=False,
-                    indent=2,
-                    allow_nan=False,
-                )
-                + "\n",
-                encoding="utf-8",
-            )
-        return cls(chunks, embeddings, encoder)
+            dimension = len(vectors[0]) if vectors else 0
+            if any(len(vector) != dimension for vector in vectors):
+                raise ValueError("Dense encoder returned vectors with inconsistent dimensions")
+            rows = [
+                {
+                    "vector": vector,
+                    "chunk_id": chunk.chunk_id,
+                    "text": chunk.text,
+                    "metadata": json.dumps(chunk.metadata, ensure_ascii=False, sort_keys=True, allow_nan=False),
+                    "corpus_sha256": fingerprint,
+                    "embedding_model": model_name,
+                    "embedding_revision": revision,
+                    "embedding_dimension": dimension,
+                    "normalized": True,
+                }
+                for chunk, vector in zip(chunks, vectors, strict=True)
+            ]
+            table = database.create_table(table_name, data=rows)
+        return cls(table, encoder)
 
     def search(self, query: str, k: int) -> list[RetrievedChunk]:
         if k <= 0:
             return []
-        vector = self._encoder.encode([query])[0]
-        scores = self._embeddings @ vector
-        ranked = sorted(
-            range(len(self._chunks)),
-            key=lambda index: (-float(scores[index]), self._chunks[index].chunk_id),
-        )[:k]
+        vector = _normalized_vectors(self._encoder.encode([query]))[0]
+        # No vector index is created for these benchmark tables, so LanceDB performs
+        # exhaustive exact search rather than ANN retrieval.
+        rows = self._table.search(vector).distance_type("cosine").limit(k).to_list()
         return [
             RetrievedChunk(
-                chunk_id=self._chunks[index].chunk_id,
-                text=self._chunks[index].text,
-                score=float(scores[index]),
-                metadata=self._chunks[index].metadata,
+                chunk_id=str(row["chunk_id"]),
+                text=str(row["text"]),
+                score=-float(row["_distance"]),
+                metadata=json.loads(row["metadata"]),
             )
-            for index in ranked
+            for row in rows
         ]
+
+
+def _normalized_vectors(vectors: Any) -> list[list[float]]:
+    """Convert encoder output to finite, unit-length vectors for cosine search."""
+
+    normalized: list[list[float]] = []
+    for raw_vector in vectors:
+        vector = [float(value) for value in raw_vector]
+        magnitude_squared = sum(value * value for value in vector)
+        if not vector or magnitude_squared <= 0:
+            raise ValueError("Dense encoder returned an empty or zero-length vector")
+        magnitude = magnitude_squared ** 0.5
+        normalized.append([value / magnitude for value in vector])
+    return normalized
 
 
 class BM25Retriever:

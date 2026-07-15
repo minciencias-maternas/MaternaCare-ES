@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from .data import BenchmarkSample, CorpusChunk, DatasetMode, load_corpus, load_dataset, validate_reference_chunks
-from .generation import GenerationSettings, HuggingFaceGenerator
+from .generation import HYDE_INSTRUCTION, GenerationSettings, HuggingFaceGenerator, OpenAIHydeGenerator
 from .hyde import HypotheticalRecord, prepare_hypothetical_documents
 from .metrics import METRIC_NAMES, RagasEvaluator
 from .model_registry import MODEL_REGISTRY, resolve_adapter_source
@@ -38,6 +38,7 @@ class BenchmarkConfig:
     retrieval_device: str
     retrieval_batch_size: int
     hyde_generator_model: str
+    hyde_provider: Literal["openai", "huggingface"]
     evaluator_model: str
     embedding_model: str
     evaluator_max_completion_tokens: int
@@ -97,21 +98,14 @@ def retrieve_for_strategy(
 
 
 def _hyde_cache_path(config: BenchmarkConfig) -> Path:
-    settings = json.dumps(
-        {
-            "generation": asdict(config.hyde_generation_settings),
-            "load_in_4bit": config.hyde_load_in_4bit,
-            "trust_remote_code": config.trust_remote_code,
-            "attn_implementation": config.attn_implementation,
-        },
-        sort_keys=True, allow_nan=False,
-    )
-    fingerprint = hashlib.sha256(settings.encode("utf-8")).hexdigest()[:12]
+    identity = _hyde_identity(config)
+    canonical_identity = json.dumps(identity, sort_keys=True, separators=(",", ":"), allow_nan=False)
+    fingerprint = hashlib.sha256(canonical_identity.encode("utf-8")).hexdigest()[:12]
     return (
         config.index_dir
         / "hyde_cache"
         / config.dataset_mode
-        / safe_name(config.hyde_generator_model)
+        / safe_name(f"{config.hyde_provider}-{config.hyde_generator_model}")
         / f"{fingerprint}.jsonl"
     )
 
@@ -128,11 +122,39 @@ def _experiment_configuration(config: BenchmarkConfig) -> dict[str, Any]:
     return {
         "dataset": {"mode": config.dataset_mode, "path": str(dataset_path.resolve()), "sha256": dataset_sha, "limit": config.limit},
         "corpus": {"path": str(config.corpus_path.resolve()), "sha256": corpus_sha}, "strategy": config.strategy,
-        "retrieval": {"k": config.retrieval_k, "model": config.retrieval_embedding_model, "revision": config.retrieval_embedding_revision, "device": config.retrieval_device, "batch_size": config.retrieval_batch_size},
-        "hyde": {"model": config.hyde_generator_model, "generation": asdict(config.hyde_generation_settings), "load_in_4bit": config.hyde_load_in_4bit} if config.strategy == "hyde" else None,
+        "retrieval": {"backend": "lancedb_exact", "k": config.retrieval_k, "model": config.retrieval_embedding_model, "revision": config.retrieval_embedding_revision, "device": config.retrieval_device, "batch_size": config.retrieval_batch_size},
+        "hyde": _hyde_identity(config) if config.strategy == "hyde" else None,
         "answer": {"key": config.model_key, "model_id": spec.model_id, "base_model_id": spec.base_model_id, "adapter_source": adapter_source, "adapter_provenance": provenance, "generation": asdict(config.generation_settings), "load_in_4bit": config.load_in_4bit, "trust_remote_code": config.trust_remote_code, "attn_implementation": config.attn_implementation},
         "evaluator": {"model": config.evaluator_model, "embedding_model": config.embedding_model, "max_completion_tokens": config.evaluator_max_completion_tokens, "timeout_seconds": config.evaluator_timeout_seconds},
     }
+
+
+def _hyde_identity(config: BenchmarkConfig) -> dict[str, Any]:
+    """All inputs that can change a cached hypothetical document."""
+
+    identity: dict[str, Any] = {
+        "provider": config.hyde_provider,
+        "model": config.hyde_generator_model,
+        "prompt": HYDE_INSTRUCTION,
+    }
+    if config.hyde_provider == "huggingface":
+        identity.update(
+            {
+                "generation": asdict(config.hyde_generation_settings),
+                "load_in_4bit": config.hyde_load_in_4bit,
+                "trust_remote_code": config.trust_remote_code,
+                "attn_implementation": config.attn_implementation,
+            }
+        )
+    else:
+        settings = config.hyde_generation_settings
+        if settings.repetition_penalty is not None or settings.no_repeat_ngram_size:
+            raise ValueError("OpenAI HyDE does not support repetition_penalty or no_repeat_ngram_size")
+        identity["generation"] = {
+            "max_output_tokens": settings.max_new_tokens,
+            "temperature": settings.temperature if settings.do_sample else None,
+        }
+    return identity
 
 
 def _output_paths(config: BenchmarkConfig, identity: dict[str, Any]) -> tuple[Path, Path]:
@@ -237,19 +259,24 @@ async def run_benchmark(
 
     hypothetical_records: dict[str, HypotheticalRecord] = {}
     if config.strategy == "hyde":
-        hyde_generator_factory = hyde_generator_factory or (
-            lambda: HuggingFaceGenerator.from_base_model(
+        if hyde_generator_factory is None and config.hyde_provider == "openai":
+            hyde_generator_factory = lambda: OpenAIHydeGenerator.from_model(
+                model_id=config.hyde_generator_model,
+                settings=config.hyde_generation_settings,
+            )
+        elif hyde_generator_factory is None:
+            hyde_generator_factory = lambda: HuggingFaceGenerator.from_base_model(
                 model_id=config.hyde_generator_model,
                 settings=config.hyde_generation_settings,
                 load_in_4bit=config.hyde_load_in_4bit,
                 trust_remote_code=config.trust_remote_code,
                 attn_implementation=config.attn_implementation,
             )
-        )
         hypothetical_records = prepare_hypothetical_documents(
             samples=samples,
             cache_path=_hyde_cache_path(config),
             model_id=config.hyde_generator_model,
+            generator_identity=_hyde_identity(config),
             generator_factory=hyde_generator_factory,
         )
 
@@ -309,10 +336,12 @@ async def run_benchmark(
                             "response": answer.text,
                             "retrieved_contexts": contexts,
                             "retrieved_chunk_ids": [item.chunk_id for item in retrieved],
+                            "retrieved_metadata": [item.metadata for item in retrieved],
                             **combine_system_measurements(
                                 answer.measurement,
                                 retrieval_latency,
                                 hypothetical.measurement if hypothetical else None,
+                                hypothetical_cache_hit=hypothetical.cache_hit if hypothetical else False,
                             ),
                         }
                     )

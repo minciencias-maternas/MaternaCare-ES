@@ -1,4 +1,4 @@
-"""Lazy Hugging Face answer and hypothetical-document generation."""
+"""Lazy answer generation plus provider-specific HyDE generation."""
 
 from __future__ import annotations
 
@@ -237,3 +237,75 @@ class HuggingFaceGenerator:
         gc.collect()
         if self.torch.cuda.is_available():
             self.torch.cuda.empty_cache()
+
+
+class OpenAIHydeGenerator:
+    """Generate HyDE documents with the Responses API without loading local weights."""
+
+    DEFAULT_TIMEOUT_SECONDS = 60.0
+    DEFAULT_MAX_RETRIES = 2
+
+    def __init__(self, client: Any, model_id: str, settings: GenerationSettings) -> None:
+        self.client = client
+        self.model_id = model_id
+        self.settings = settings
+
+    @classmethod
+    def from_model(
+        cls,
+        model_id: str,
+        settings: GenerationSettings,
+        *,
+        timeout_seconds: float = DEFAULT_TIMEOUT_SECONDS,
+        max_retries: int = DEFAULT_MAX_RETRIES,
+    ) -> "OpenAIHydeGenerator":
+        try:
+            from openai import OpenAI
+        except ImportError as exc:
+            raise RuntimeError("Install the OpenAI client from requirements.txt for OpenAI HyDE generation") from exc
+        return cls(
+            client=OpenAI(timeout=timeout_seconds, max_retries=max_retries),
+            model_id=model_id,
+            settings=settings,
+        )
+
+    def hypothetical_document(self, question: str) -> GenerationResult:
+        # This includes prompt construction, request transmission, and response receipt.
+        started = time.perf_counter()
+        prompt = build_hyde_messages(question)[0]["content"]
+        request: dict[str, Any] = {
+            "model": self.model_id,
+            "input": prompt,
+            "max_output_tokens": self.settings.max_new_tokens,
+            "store": False,
+        }
+        # The default is deterministic at the benchmark level: do not send sampling
+        # parameters unless the caller explicitly opted into sampling.
+        if self.settings.do_sample:
+            request["temperature"] = self.settings.temperature
+        response = self.client.responses.create(**request)
+        latency = time.perf_counter() - started
+        if getattr(response, "status", None) != "completed":
+            raise RuntimeError(f"OpenAI Responses API returned non-completed status: {getattr(response, 'status', None)!r}")
+        if getattr(response, "incomplete_details", None) is not None:
+            raise RuntimeError("OpenAI Responses API returned incomplete HyDE output")
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            raise RuntimeError("OpenAI Responses API returned no usage; cannot record benchmark token telemetry")
+        try:
+            input_tokens = int(usage.input_tokens)
+            output_tokens = int(usage.output_tokens)
+        except (AttributeError, TypeError, ValueError) as exc:
+            raise RuntimeError("OpenAI Responses API returned incomplete usage telemetry") from exc
+        text = str(getattr(response, "output_text", "")).strip()
+        if not text:
+            raise RuntimeError("OpenAI Responses API returned no HyDE text")
+        return GenerationResult(
+            text=text,
+            measurement=GenerationMeasurement.from_counts(input_tokens, output_tokens, latency),
+        )
+
+    def close(self) -> None:
+        close = getattr(self.client, "close", None)
+        if callable(close):
+            close()

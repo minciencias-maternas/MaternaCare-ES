@@ -3,18 +3,16 @@
 from __future__ import annotations
 
 import json
-import re
-import zipfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
-from xml.etree import ElementTree
 
 
 DatasetMode = Literal["sample10", "maternaqa_test"]
-XLSX_MAIN_NS = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"
-XLSX_REL_NS = "http://schemas.openxmlformats.org/officeDocument/2006/relationships"
-PACKAGE_REL_NS = "http://schemas.openxmlformats.org/package/2006/relationships"
+JSONL_REQUIRED_FIELDS = frozenset({"qa_id", "pregunta", "respuesta"})
+MATERNAQA_REQUIRED_FIELDS = JSONL_REQUIRED_FIELDS | frozenset(
+    {"contexto_fuente", "chunk_id", "source_pdf", "pages", "section"}
+)
 
 
 @dataclass(frozen=True)
@@ -38,155 +36,83 @@ class CorpusChunk:
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
-def _column_index(cell_reference: str) -> int:
-    letters = re.match(r"[A-Z]+", cell_reference)
-    if not letters:
-        raise ValueError(f"Invalid XLSX cell reference: {cell_reference}")
-    value = 0
-    for letter in letters.group(0):
-        value = value * 26 + ord(letter) - ord("A") + 1
-    return value - 1
-
-
-def _shared_strings(archive: zipfile.ZipFile) -> list[str]:
-    try:
-        root = ElementTree.fromstring(archive.read("xl/sharedStrings.xml"))
-    except KeyError:
-        return []
-    namespace = {"x": XLSX_MAIN_NS}
-    return ["".join(node.text or "" for node in item.findall(".//x:t", namespace)) for item in root]
-
-
-def _worksheet_path(archive: zipfile.ZipFile, sheet_name: str) -> str:
-    namespace = {"x": XLSX_MAIN_NS, "r": XLSX_REL_NS}
-    workbook = ElementTree.fromstring(archive.read("xl/workbook.xml"))
-    relationship_id: str | None = None
-    for sheet in workbook.findall("x:sheets/x:sheet", namespace):
-        if sheet.get("name") == sheet_name:
-            relationship_id = sheet.get(f"{{{XLSX_REL_NS}}}id")
-            break
-    if relationship_id is None:
-        raise ValueError(f"XLSX sheet not found: {sheet_name}")
-
-    relationships = ElementTree.fromstring(archive.read("xl/_rels/workbook.xml.rels"))
-    for relationship in relationships.findall(f"{{{PACKAGE_REL_NS}}}Relationship"):
-        if relationship.get("Id") == relationship_id:
-            target = str(relationship.get("Target") or "").lstrip("/")
-            return target if target.startswith("xl/") else f"xl/{target}"
-    raise ValueError(f"XLSX relationship not found for sheet: {sheet_name}")
-
-
-def _read_xlsx_records(path: Path, sheet_name: str) -> list[dict[str, str]]:
-    if not path.exists():
-        raise FileNotFoundError(f"XLSX dataset not found: {path}")
-
-    namespace = {"x": XLSX_MAIN_NS}
-    with zipfile.ZipFile(path) as archive:
-        shared = _shared_strings(archive)
-        worksheet = ElementTree.fromstring(archive.read(_worksheet_path(archive, sheet_name)))
-
-    rows: list[list[str]] = []
-    for row in worksheet.findall("x:sheetData/x:row", namespace):
-        values: dict[int, str] = {}
-        for cell in row.findall("x:c", namespace):
-            index = _column_index(str(cell.get("r") or ""))
-            cell_type = cell.get("t")
-            value_node = cell.find("x:v", namespace)
-            raw = value_node.text if value_node is not None and value_node.text else ""
-            if cell_type == "s" and raw:
-                value = shared[int(raw)]
-            elif cell_type == "inlineStr":
-                value = "".join(node.text or "" for node in cell.findall(".//x:t", namespace))
-            else:
-                value = raw
-            values[index] = value.strip()
-        width = max(values, default=-1) + 1
-        rows.append([values.get(index, "") for index in range(width)])
-
-    if not rows:
-        return []
-    headers = rows[0]
-    return [
-        {header: row[index] if index < len(row) else "" for index, header in enumerate(headers)}
-        for row in rows[1:]
-    ]
-
-
-def load_sample10(path: Path) -> list[BenchmarkSample]:
-    """Load the canonical ten question/reference pairs from DATA_GT."""
-
-    records = _read_xlsx_records(path, "DATA_GT")
-    required = {"question", "ground_truth"}
-    if records and not required.issubset(records[0]):
-        raise ValueError(f"DATA_GT must contain columns: {sorted(required)}")
-    if len(records) != 10:
-        raise ValueError(f"sample10 must contain exactly 10 rows, found {len(records)}")
-
-    samples = []
-    for index, row in enumerate(records, start=1):
-        question = row["question"].strip()
-        reference = row["ground_truth"].strip()
-        if not question or not reference:
-            raise ValueError(f"sample10 row {index} has an empty question or ground_truth")
-        samples.append(
-            BenchmarkSample(
-                qa_id=f"sample10_{index:03d}",
-                question=question,
-                reference=reference,
-                metadata={"dataset_mode": "sample10", "row_number": index + 1},
-            )
-        )
-    return samples
-
-
-def load_maternaqa_test(path: Path) -> list[BenchmarkSample]:
-    """Load the canonical 328-row flat MaternaQA test split."""
+def load_jsonl_dataset(
+    path: Path,
+    *,
+    dataset_name: str = "dataset",
+    expected_rows: int | None = None,
+    required_fields: frozenset[str] = JSONL_REQUIRED_FIELDS,
+) -> list[BenchmarkSample]:
+    """Load the canonical benchmark JSONL schema into normalized samples."""
 
     if not path.exists():
-        raise FileNotFoundError(f"MaternaQA test split not found: {path}")
-    rows = [
-        json.loads(line)
-        for line in path.read_text(encoding="utf-8").splitlines()
-        if line.strip()
-    ]
-    required = {
-        "qa_id",
-        "pregunta",
-        "respuesta",
-        "contexto_fuente",
-        "chunk_id",
-        "source_pdf",
-        "pages",
-        "section",
-    }
+        raise FileNotFoundError(f"{dataset_name} dataset not found: {path}")
+
     samples: list[BenchmarkSample] = []
     seen: set[str] = set()
-    for line_number, row in enumerate(rows, start=1):
-        missing = required - row.keys()
+    for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+        if not line.strip():
+            continue
+        try:
+            row = json.loads(line)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"Invalid JSONL at {path}:{line_number}") from exc
+        if not isinstance(row, dict):
+            raise ValueError(f"{dataset_name} row {line_number} must be a JSON object")
+        missing = required_fields - row.keys()
         if missing:
-            raise ValueError(f"MaternaQA row {line_number} is missing: {sorted(missing)}")
-        qa_id = str(row["qa_id"])
+            raise ValueError(f"{dataset_name} row {line_number} is missing: {sorted(missing)}")
+        null_fields = sorted(field for field in required_fields if row[field] is None)
+        if null_fields:
+            raise ValueError(f"{dataset_name} row {line_number} has null required fields: {null_fields}")
+
+        qa_id = str(row["qa_id"]).strip()
+        question = str(row["pregunta"]).strip()
+        reference = str(row["respuesta"]).strip()
+        if not qa_id or not question or not reference:
+            raise ValueError(f"{dataset_name} row {line_number} has an empty qa_id, pregunta, or respuesta")
         if qa_id in seen:
-            raise ValueError(f"Duplicate MaternaQA qa_id: {qa_id}")
+            raise ValueError(f"Duplicate {dataset_name} qa_id: {qa_id}")
         seen.add(qa_id)
+
+        raw_chunk_id = row.get("chunk_id")
+        reference_chunk_id = str(raw_chunk_id).strip() if raw_chunk_id is not None else None
+        metadata = {
+            key: value
+            for key, value in row.items()
+            if key not in {"qa_id", "pregunta", "respuesta", "contexto_fuente"}
+        }
         samples.append(
             BenchmarkSample(
                 qa_id=qa_id,
-                question=str(row["pregunta"]).strip(),
-                reference=str(row["respuesta"]).strip(),
-                source_context=str(row["contexto_fuente"]).strip(),
-                reference_chunk_id=str(row["chunk_id"]),
-                metadata={
-                    "chunk_id": str(row["chunk_id"]),
-                    "source_pdf": row["source_pdf"],
-                    "pages": row["pages"],
-                    "section": row["section"],
-                },
+                question=question,
+                reference=reference,
+                source_context=str(row.get("contexto_fuente") or "").strip(),
+                reference_chunk_id=reference_chunk_id or None,
+                metadata=metadata,
             )
         )
-    if len(samples) != 328:
-        raise ValueError(f"maternaqa_test must contain exactly 328 rows, found {len(samples)}")
+
+    if expected_rows is not None and len(samples) != expected_rows:
+        raise ValueError(f"{dataset_name} must contain exactly {expected_rows} rows, found {len(samples)}")
     return samples
+
+
+def load_sample10(path: Path) -> list[BenchmarkSample]:
+    """Load the canonical ten question/reference pairs from JSONL."""
+
+    return load_jsonl_dataset(path, dataset_name="sample10", expected_rows=10)
+
+
+def load_maternaqa_test(path: Path) -> list[BenchmarkSample]:
+    """Load the canonical 328-row flat MaternaQA test split from JSONL."""
+
+    return load_jsonl_dataset(
+        path,
+        dataset_name="maternaqa_test",
+        expected_rows=328,
+        required_fields=MATERNAQA_REQUIRED_FIELDS,
+    )
 
 
 def load_dataset(mode: DatasetMode, sample10_path: Path, maternaqa_path: Path) -> list[BenchmarkSample]:
@@ -230,4 +156,3 @@ def validate_reference_chunks(samples: list[BenchmarkSample], corpus: list[Corpu
     missing = sorted(references - corpus_ids)
     if missing:
         raise ValueError(f"Corpus is missing {len(missing)} reference chunk IDs: {missing[:10]}")
-

@@ -20,6 +20,7 @@ tiktoken>=0.12.0
 numpy>=1.26.0
 rank-bm25==0.2.2
 sentence-transformers==3.4.1
+lancedb==0.29.0
 
 # Fine-tuning and inference stack (TRL + PEFT + QLoRA).
 # For CUDA workstations, install the PyTorch wheel that matches the local CUDA
