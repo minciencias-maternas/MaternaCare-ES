@@ -1,3 +1,9 @@
+# Base dependencies for MaternaCare-ES.
+# PyTorch is NOT listed here because the wheel must match the host backend (CUDA or CPU).
+# Install one of the backend-specific files instead:
+#   - NVIDIA GPU (CUDA 12.4): pip install -r requirements-cuda.txt
+#   - CPU only:               pip install -r requirements-cpu.txt
+
 datasets==4.4.0
 pandas==2.3.3
 jsonlines==4.0.0
@@ -23,9 +29,7 @@ sentence-transformers==3.4.1
 lancedb==0.29.0
 
 # Fine-tuning and inference stack (TRL + PEFT + QLoRA).
-# For CUDA workstations, install the PyTorch wheel that matches the local CUDA
-# driver first if needed, then install this file.
-torch>=2.5.0
+# Choose the backend-specific requirements file above to pull the correct PyTorch wheel.
 transformers>=4.57.0
 accelerate>=1.11.0
 bitsandbytes>=0.48.0

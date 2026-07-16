@@ -1,0 +1,10 @@
+# PyTorch wheels for machines without a CUDA GPU (CPU-only).
+# Note: 4-bit QLoRA training/inference requires an NVIDIA CUDA device.
+# Install torch first with the CPU index so the rest of the dependencies do not
+# pull a CUDA wheel transitively.
+--index-url https://download.pytorch.org/whl/cpu
+torch==2.5.0+cpu
+torchvision==0.20.0+cpu
+torchaudio==2.5.0+cpu
+
+-r requirements.txt

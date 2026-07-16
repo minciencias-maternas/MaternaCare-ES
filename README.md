@@ -117,8 +117,27 @@ MaternaCare-ES/
 git clone https://github.com/JhonHander/MaternaCare-ES.git
 cd MaternaCare-ES
 python -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
 ```
+
+Elige el archivo de requisitos según tu backend de PyTorch:
+
+- **Con GPU NVIDIA (RTX recomendado):**
+  ```bash
+  pip install -r requirements-cuda.txt
+  ```
+- **Sin GPU / solo CPU:**
+  ```bash
+  pip install -r requirements-cpu.txt
+  ```
+
+Verifica la instalación:
+
+```bash
+python -c "import torch; print(torch.cuda.is_available()); print(torch.cuda.get_device_name(0) if torch.cuda.is_available() else 'CPU')"
+```
+
+> [!WARNING]
+> No ejecutes `pip install -r requirements.txt` directamente: ese archivo contiene las dependencias comunes pero **no incluye PyTorch**. Si ya instalaste una versión CPU-only de torch por error, recrea el entorno virtual (`rm -rf .venv && python -m venv .venv`) antes de instalar con `requirements-cuda.txt`.
 
 > [!NOTE]
 > Para descargar modelos de Hugging Face se requiere `HF_TOKEN`. Los modelos Gemma 4 y MedGemma son **gated** — necesitas aceptar los términos en huggingface.co antes de usarlos.
@@ -141,7 +160,7 @@ El entrenamiento usa QLoRA (Quantized Low-Rank Adaptation) para fine-tuning efic
 
 ### Requisitos
 
-- [ ] `pip install -r requirements.txt`
+- [ ] `pip install -r requirements-cuda.txt` (usar `requirements-cpu.txt` únicamente si no se dispone de GPU NVIDIA)
 - [ ] `huggingface-cli login` o `export HF_TOKEN=<tu_token>`
 - [ ] Aceptar términos de Gemma 4 / MedGemma en Hugging Face
 - [ ] GPU NVIDIA con ≥ 16 GB VRAM
