@@ -60,7 +60,13 @@ def import_generation_stack() -> dict[str, Any]:
     try:
         import torch
         from peft import PeftModel
-        from transformers import AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer, BitsAndBytesConfig
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoModelForImageTextToText,
+            AutoProcessor,
+            AutoTokenizer,
+            BitsAndBytesConfig,
+        )
     except ImportError as exc:
         raise RuntimeError("Install the inference dependencies from requirements.txt") from exc
     return {
@@ -68,6 +74,7 @@ def import_generation_stack() -> dict[str, Any]:
         "PeftModel": PeftModel,
         "AutoModelForCausalLM": AutoModelForCausalLM,
         "AutoModelForImageTextToText": AutoModelForImageTextToText,
+        "AutoProcessor": AutoProcessor,
         "AutoTokenizer": AutoTokenizer,
         "BitsAndBytesConfig": BitsAndBytesConfig,
     }
@@ -76,11 +83,19 @@ def import_generation_stack() -> dict[str, Any]:
 class HuggingFaceGenerator:
     """One loaded generator with identical prompt and decoding semantics across model roles."""
 
-    def __init__(self, model: Any, tokenizer: Any, torch: Any, settings: GenerationSettings) -> None:
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        torch: Any,
+        settings: GenerationSettings,
+        is_multimodal: bool = False,
+    ) -> None:
         self.model = model
         self.tokenizer = tokenizer
         self.torch = torch
         self.settings = settings
+        self._is_multimodal = is_multimodal
 
     @classmethod
     def from_answer_spec(
@@ -143,15 +158,17 @@ class HuggingFaceGenerator:
             dtype = torch.bfloat16
         else:
             dtype = torch.float16
+        is_multimodal = resolve_model_class(model_id) == "image-text-to-text"
+        tokenizer_cls = stack["AutoProcessor"] if is_multimodal else stack["AutoTokenizer"]
         try:
-            tokenizer = stack["AutoTokenizer"].from_pretrained(
+            tokenizer = tokenizer_cls.from_pretrained(
                 tokenizer_source,
                 trust_remote_code=trust_remote_code,
             )
         except (OSError, ValueError):
             if adapter_source is None or tokenizer_source == model_id:
                 raise
-            tokenizer = stack["AutoTokenizer"].from_pretrained(
+            tokenizer = tokenizer_cls.from_pretrained(
                 model_id,
                 trust_remote_code=trust_remote_code,
             )
@@ -185,18 +202,36 @@ class HuggingFaceGenerator:
         if adapter_source:
             model = stack["PeftModel"].from_pretrained(model, adapter_source)
         model.eval()
-        return cls(model=model, tokenizer=tokenizer, torch=torch, settings=settings)
+        return cls(model=model, tokenizer=tokenizer, torch=torch, settings=settings, is_multimodal=is_multimodal)
 
     def generate_messages(self, messages: Sequence[dict[str, str]]) -> GenerationResult:
         if self.torch.cuda.is_available():
             self.torch.cuda.synchronize()
         started = time.perf_counter()
-        prompt = self.tokenizer.apply_chat_template(
-            list(messages),
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
+        if self._is_multimodal:
+            multimodal_messages = [
+                {
+                    "role": message["role"],
+                    "content": [{"type": "text", "text": message["content"]}]
+                    if isinstance(message["content"], str)
+                    else message["content"],
+                }
+                for message in messages
+            ]
+            inputs = self.tokenizer.apply_chat_template(
+                multimodal_messages,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+            ).to(self.model.device)
+        else:
+            prompt = self.tokenizer.apply_chat_template(
+                list(messages),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
         input_tokens = int(inputs["input_ids"].shape[1])
         kwargs: dict[str, Any] = {
             "max_new_tokens": self.settings.max_new_tokens,
