@@ -19,7 +19,7 @@
 ---
 
 > [!IMPORTANT]
-> Este repositorio documenta el proceso completo de fine-tuning de modelos de lenguaje para QA clínico en español. Incluye scripts de entrenamiento QLoRA, inferencia, evaluación con métricas automáticas (ROUGE, BERTScore, RAGAS) y publicación de adapters en Hugging Face.
+> Este repositorio documenta el proceso completo de fine-tuning de modelos de lenguaje para QA clínico en español. Incluye scripts de entrenamiento QLoRA, inferencia, evaluación con métricas basadas en LLM-as-judge (RAGAS) y publicación de adapters en Hugging Face.
 
 ## ¿Qué es MaternaCare-ES?
 
@@ -29,7 +29,7 @@ El proyecto incluye:
 
 - **Scripts reproducibles** de entrenamiento QLoRA con TRL y PEFT.
 - **Adapters entrenados** para Gemma 4 E2B y MedGemma 1.5 4B.
-- **Evaluaciones completas** con métricas automáticas (ROUGE, BERTScore, Exact Match, RAGAS).
+- **Evaluaciones completas** con métricas basadas en LLM-as-judge (RAGAS: faithfulness, answer relevancy, answer correctness, semantic similarity).
 - **Checkpoints intermedios** para reanudar entrenamiento o auditar el proceso.
 - **Documentación técnica** de decisiones de arquitectura y hiperparámetros.
 
@@ -234,28 +234,31 @@ python scripts/inference_base.py \
 
 ## Métricas de Evaluación
 
-El proyecto evalúa las predicciones con múltiples métricas automáticas para capturar diferentes aspectos de la calidad:
+El proyecto evalúa las predicciones utilizando RAGAS con un LLM-as-judge (GPT-4o-mini) y embeddings (text-embedding-3-small) para capturar diferentes aspectos de la calidad:
 
 | Métrica | Qué mide | Rango |
 |---------|----------|-------|
-| **ROUGE-1** | Solapamiento léxico (unigramas) | 0–1 |
-| **ROUGE-L** | Solapamiento por secuencia más larga | 0–1 |
-| **BERTScore F1** | Similitud semántica basada en embeddings | 0–1 |
-| **Exact Match** | Coincidencia exacta de la respuesta | 0–1 |
-| **RAGAS** | Calidad de generación en QA (faithfulness, relevancia) | 0–1 |
+| **Faithfulness** | Qué tan fiel es la respuesta al contexto proporcionado | 0–1 |
+| **Answer Relevancy** | Qué tan relevante es la respuesta respecto a la pregunta | 0–1 |
+| **Answer Correctness** | Qué tan correcta es la respuesta comparada con la referencia | 0–1 |
+| **Semantic Similarity** | Similitud semántica entre la respuesta y la referencia (embeddings) | 0–1 |
 
 ### Evaluación de predicciones
 
 ```bash
-# Métricas automáticas (ROUGE, BERTScore, Exact Match)
+# Evaluar predicciones con RAGAS (faithfulness, answer relevancy, answer correctness, semantic similarity)
 python scripts/evaluate_model_predictions.py \
   --input outputs/gemma4-grounded/test_predictions.jsonl \
   --output outputs/gemma4-grounded/test_eval.jsonl
+```
 
-# Evaluación con RAGAS (faithfulness, answer relevancy)
+### Evaluación de calidad del dataset
+
+```bash
+# Evaluar calidad de los pares Q+A del dataset (no de las predicciones del modelo)
 python scripts/evaluate_qa_with_ragas.py \
-  --input outputs/gemma4-grounded/test_predictions.jsonl \
-  --output outputs/gemma4-grounded/test_ragas.jsonl
+  --input datasets/obstetrics/qa/final/train/raw.jsonl \
+  --output datasets/obstetrics/qa/final/train/eval.json
 ```
 
 ## Reproducibilidad
