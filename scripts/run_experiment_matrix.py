@@ -225,22 +225,25 @@ def build_matrix_parser() -> argparse.ArgumentParser:
         help="Only validate datasets and exit.",
     )
 
-    # Passthrough: forward remaining args to the single-experiment CLI.
-    parser.add_argument(
-        "passthrough",
-        nargs=argparse.REMAINDER,
-        help="Additional arguments forwarded to each experiment (e.g. --no-load-in-4bit --retrieval-k 10)",
-    )
     return parser
 
 
 def main() -> None:
     matrix_parser = build_matrix_parser()
-    matrix_args, _ = matrix_parser.parse_known_args()
-
+    matrix_args, passthrough = matrix_parser.parse_known_args()
     mode = matrix_args.mode or _interactive_mode()
 
-    passthrough = [arg for arg in matrix_args.passthrough if arg != "--"]
+    has_adapter_path = any(
+        arg == "--adapter-path" or arg.startswith("--adapter-path=")
+        for arg in sys.argv[1:]
+    )
+    if has_adapter_path and matrix_args.model is None and mode != "smoke":
+        matrix_parser.error(
+            "--adapter-path requires --model <model>; a single adapter override cannot be "
+            "applied to a multi-model matrix. Re-run with --model <model> to execute one model."
+        )
+
+    passthrough = [arg for arg in passthrough if arg != "--"]
 
     if mode == "smoke":
         dataset_mode = "sample10"
@@ -260,6 +263,12 @@ def main() -> None:
 
     base_args = ["--dataset-mode", dataset_mode, "--strategy", "no_rag", *passthrough]
 
+    combos = 1
+    if not specific_model:
+        combos *= len(MODELS)
+    if not specific_strategy:
+        combos *= len(STRATEGIES)
+
     if matrix_args.validate_data_only:
         from rag_benchmark.cli import build_parser as bp, config_from_args as cfa
         from rag_benchmark.runner import load_and_validate_data
@@ -276,15 +285,9 @@ def main() -> None:
             "corpus_chunks": len(corpus),
             "reference_chunk_ids": len(ref),
             "limit": limit,
-            "matrix_size": 1 if specific_model and specific_strategy else MATRIX_SIZE,
+            "matrix_size": combos,
         }, ensure_ascii=False))
         return
-
-    combos = 1
-    if not specific_model:
-        combos *= len(MODELS)
-    if not specific_strategy:
-        combos *= len(STRATEGIES)
 
     print(f"\nMode: {mode}  |  Dataset: {dataset_mode}  |  Limit: {limit or 'all'}")
     print(f"Experiments: {combos}  |  Resume: enabled")

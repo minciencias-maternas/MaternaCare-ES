@@ -12,9 +12,14 @@ from .model_registry import ModelSpec, resolve_adapter_source
 from .telemetry import GenerationMeasurement
 
 
-ANSWER_INSTRUCTION = (
+ANSWER_WITH_CONTEXT_INSTRUCTION = (
     "Responde la pregunta clínica en español de forma precisa y directa. "
-    "No inventes información que no esté respaldada por el contexto disponible."
+    "Usa exclusivamente la información respaldada por el contexto recuperado. "
+    "Si el contexto no permite responder, indícalo claramente."
+)
+ANSWER_WITHOUT_CONTEXT_INSTRUCTION = (
+    "Responde la pregunta clínica en español de forma precisa y directa usando tus conocimientos generales. "
+    "Si no puedes establecer la respuesta con seguridad, indícalo claramente."
 )
 HYDE_INSTRUCTION = (
     "Redacta un documento clínico breve en español que probablemente contendría la información "
@@ -38,12 +43,17 @@ class GenerationResult:
     measurement: GenerationMeasurement
 
 
-def build_answer_messages(question: str, contexts: Sequence[str]) -> list[dict[str, str]]:
-    if contexts:
+def build_answer_messages(
+    question: str,
+    contexts: Sequence[str],
+    *,
+    require_retrieved_context: bool,
+) -> list[dict[str, str]]:
+    if require_retrieved_context:
         context = "\n\n".join(f"[{index}] {text}" for index, text in enumerate(contexts, start=1))
-        content = f"{ANSWER_INSTRUCTION}\n\nContexto recuperado:\n{context}\n\nPregunta: {question}"
+        content = f"{ANSWER_WITH_CONTEXT_INSTRUCTION}\n\nContexto recuperado:\n{context}\n\nPregunta: {question}"
     else:
-        content = f"{ANSWER_INSTRUCTION}\n\nPregunta: {question}"
+        content = f"{ANSWER_WITHOUT_CONTEXT_INSTRUCTION}\n\nPregunta: {question}"
     return [{"role": "user", "content": content}]
 
 
@@ -225,8 +235,20 @@ class HuggingFaceGenerator:
             measurement=GenerationMeasurement.from_counts(input_tokens, output_tokens, latency),
         )
 
-    def answer(self, question: str, contexts: Sequence[str]) -> GenerationResult:
-        return self.generate_messages(build_answer_messages(question, contexts))
+    def answer(
+        self,
+        question: str,
+        contexts: Sequence[str],
+        *,
+        require_retrieved_context: bool,
+    ) -> GenerationResult:
+        return self.generate_messages(
+            build_answer_messages(
+                question,
+                contexts,
+                require_retrieved_context=require_retrieved_context,
+            )
+        )
 
     def hypothetical_document(self, question: str) -> GenerationResult:
         return self.generate_messages(build_hyde_messages(question))

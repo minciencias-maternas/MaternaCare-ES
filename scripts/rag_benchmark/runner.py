@@ -11,7 +11,14 @@ from pathlib import Path
 from typing import Any, Callable, Literal
 
 from .data import BenchmarkSample, CorpusChunk, DatasetMode, load_corpus, load_dataset, validate_reference_chunks
-from .generation import HYDE_INSTRUCTION, GenerationSettings, HuggingFaceGenerator, OpenAIHydeGenerator
+from .generation import (
+    ANSWER_WITH_CONTEXT_INSTRUCTION,
+    ANSWER_WITHOUT_CONTEXT_INSTRUCTION,
+    HYDE_INSTRUCTION,
+    GenerationSettings,
+    HuggingFaceGenerator,
+    OpenAIHydeGenerator,
+)
 from .hyde import HypotheticalRecord, prepare_hypothetical_documents
 from .metrics import METRIC_NAMES, RagasEvaluator
 from .model_registry import MODEL_REGISTRY, resolve_adapter_source
@@ -124,7 +131,7 @@ def _experiment_configuration(config: BenchmarkConfig) -> dict[str, Any]:
         "corpus": {"path": str(config.corpus_path.resolve()), "sha256": corpus_sha}, "strategy": config.strategy,
         "retrieval": {"backend": "lancedb_exact", "k": config.retrieval_k, "model": config.retrieval_embedding_model, "revision": config.retrieval_embedding_revision, "device": config.retrieval_device, "batch_size": config.retrieval_batch_size},
         "hyde": _hyde_identity(config) if config.strategy == "hyde" else None,
-        "answer": {"key": config.model_key, "model_id": spec.model_id, "base_model_id": spec.base_model_id, "adapter_source": adapter_source, "adapter_provenance": provenance, "generation": asdict(config.generation_settings), "load_in_4bit": config.load_in_4bit, "trust_remote_code": config.trust_remote_code, "attn_implementation": config.attn_implementation},
+        "answer": {"key": config.model_key, "model_id": spec.model_id, "base_model_id": spec.base_model_id, "adapter_source": adapter_source, "adapter_provenance": provenance, "prompt": ANSWER_WITHOUT_CONTEXT_INSTRUCTION if config.strategy == "no_rag" else ANSWER_WITH_CONTEXT_INSTRUCTION, "generation": asdict(config.generation_settings), "load_in_4bit": config.load_in_4bit, "trust_remote_code": config.trust_remote_code, "attn_implementation": config.attn_implementation},
         "evaluator": {"model": config.evaluator_model, "embedding_model": config.embedding_model, "max_completion_tokens": config.evaluator_max_completion_tokens, "timeout_seconds": config.evaluator_timeout_seconds},
     }
 
@@ -330,7 +337,11 @@ async def run_benchmark(
                         hypothetical_text=hypothetical.text if hypothetical else None,
                     )
                     contexts = [item.text for item in retrieved]
-                    answer = answer_generator.answer(sample.question, contexts)
+                    answer = answer_generator.answer(
+                        sample.question,
+                        contexts,
+                        require_retrieved_context=config.strategy != "no_rag",
+                    )
                     row.update(
                         {
                             "response": answer.text,
