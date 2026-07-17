@@ -197,13 +197,23 @@ tags:
   - spanish
   - qlora
   - medgemma
-license: apache-2.0
+license: health-ai-developer-foundations
 ---
 
 # MaternaCare-ES MedGemma 1.5 4B QLoRA
 
 LoRA adapter fine-tuned on **MaternaQA-es** using **RAFT** methodology
 with **google/medgemma-1.5-4b-it** base model.
+
+## License and restrictions
+
+This adapter is a model derivative of MedGemma 1.5. Its use and distribution
+are governed by the [Health AI Developer Foundations Terms of Use](https://developers.google.com/health-ai-developer-foundations/terms)
+and the [Prohibited Use Policy](https://developers.google.com/health-ai-developer-foundations/prohibited-use-policy).
+Those terms are not replaced by this adapter's metadata or by the repository
+license.
+
+HAI-DEF is provided under and subject to the Health AI Developer Foundations Terms of Use found at https://developers.google.com/health-ai-developer-foundations/terms
 
 ## Training details
 
