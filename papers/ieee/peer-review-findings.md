@@ -277,6 +277,10 @@ generar pares QA semánticamente redundantes entre chunks consecutivos.
 
 **Severidad:** Menor.
 
+**Corregido:** La implementación ahora usa el tokenizer del modelo para
+computar el overlap real (100 tokens por defecto) y el texto del paper fue
+actualizado.
+
 ### 3.4 Validation split muy pequeño
 
 **Problema:** 306 pares de solo 2 PDFs. Baja representatividad. Cualquier
