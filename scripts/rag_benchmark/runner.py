@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import statistics
 import time
 from dataclasses import asdict, dataclass
@@ -182,6 +183,18 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _serialize_row(row: dict[str, Any]) -> str:
+    finite = {
+        key: (None if isinstance(value, float) and not math.isfinite(value) else value)
+        for key, value in row.items()
+    }
+    try:
+        return json.dumps(finite, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError):
+        row["error"] = row.get("error") or "serialization: fallback to str coercion"
+        return json.dumps(finite, ensure_ascii=False, allow_nan=False, default=str)
+
+
 def _mean(rows: list[dict[str, Any]], key: str) -> float | None:
     values = [float(row[key]) for row in rows if row.get(key) is not None]
     return statistics.mean(values) if values else None
@@ -239,7 +252,9 @@ async def run_benchmark(
     existing = _read_jsonl(output_jsonl) if config.resume else []
     successful = [row for row in existing if not row.get("error") and not row.get("metric_errors")]
     if successful != existing:
+        dropped = len(existing) - len(successful)
         output_jsonl.write_text("".join(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n" for row in successful), encoding="utf-8")
+        print(f"Resume: dropped {dropped} failed row(s) from {output_jsonl} to re-run them", flush=True)
     existing = successful
     completed = {str(row["qa_id"]) for row in existing if row.get("qa_id") is not None}
 
@@ -369,12 +384,15 @@ async def run_benchmark(
                     row["error"] = f"{type(exc).__name__}: {exc}"
                     for metric_name in METRIC_NAMES:
                         row.setdefault(metric_name, None)
-                output.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+                output.write(_serialize_row(row) + "\n")
                 output.flush()
                 if not row.get("error") and not row.get("metric_errors"):
                     completed.add(sample.qa_id)
     finally:
-        answer_generator.close()
+        try:
+            answer_generator.close()
+        except Exception as exc:
+            print(f"WARNING: failed to close answer generator: {type(exc).__name__}: {exc}", flush=True)
 
     rows = _read_jsonl(output_jsonl)
     _write_summary(summary_path, config, identity, output_jsonl, rows)
