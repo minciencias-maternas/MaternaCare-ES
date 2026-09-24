@@ -30,7 +30,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--out-dir",
         type=str,
-        default="csv_outputs",
+        default="outputs/csv_outputs",
         help="Directory to write the resulting CSV files",
     )
     return parser.parse_args()

@@ -70,7 +70,13 @@ def import_generation_stack() -> dict[str, Any]:
     try:
         import torch
         from peft import PeftModel
-        from transformers import AutoModelForCausalLM, AutoModelForImageTextToText, AutoTokenizer, BitsAndBytesConfig
+        from transformers import (
+            AutoModelForCausalLM,
+            AutoModelForImageTextToText,
+            AutoProcessor,
+            AutoTokenizer,
+            BitsAndBytesConfig,
+        )
     except ImportError as exc:
         raise RuntimeError("Install the inference dependencies from requirements.txt") from exc
     return {
@@ -78,6 +84,7 @@ def import_generation_stack() -> dict[str, Any]:
         "PeftModel": PeftModel,
         "AutoModelForCausalLM": AutoModelForCausalLM,
         "AutoModelForImageTextToText": AutoModelForImageTextToText,
+        "AutoProcessor": AutoProcessor,
         "AutoTokenizer": AutoTokenizer,
         "BitsAndBytesConfig": BitsAndBytesConfig,
     }
@@ -86,11 +93,19 @@ def import_generation_stack() -> dict[str, Any]:
 class HuggingFaceGenerator:
     """One loaded generator with identical prompt and decoding semantics across model roles."""
 
-    def __init__(self, model: Any, tokenizer: Any, torch: Any, settings: GenerationSettings) -> None:
+    def __init__(
+        self,
+        model: Any,
+        tokenizer: Any,
+        torch: Any,
+        settings: GenerationSettings,
+        is_multimodal: bool = False,
+    ) -> None:
         self.model = model
         self.tokenizer = tokenizer
         self.torch = torch
         self.settings = settings
+        self._is_multimodal = is_multimodal
 
     @classmethod
     def from_answer_spec(
@@ -153,15 +168,17 @@ class HuggingFaceGenerator:
             dtype = torch.bfloat16
         else:
             dtype = torch.float16
+        is_multimodal = resolve_model_class(model_id) == "image-text-to-text"
+        tokenizer_cls = stack["AutoProcessor"] if is_multimodal else stack["AutoTokenizer"]
         try:
-            tokenizer = stack["AutoTokenizer"].from_pretrained(
+            tokenizer = tokenizer_cls.from_pretrained(
                 tokenizer_source,
                 trust_remote_code=trust_remote_code,
             )
         except (OSError, ValueError):
             if adapter_source is None or tokenizer_source == model_id:
                 raise
-            tokenizer = stack["AutoTokenizer"].from_pretrained(
+            tokenizer = tokenizer_cls.from_pretrained(
                 model_id,
                 trust_remote_code=trust_remote_code,
             )
@@ -195,19 +212,38 @@ class HuggingFaceGenerator:
         if adapter_source:
             model = stack["PeftModel"].from_pretrained(model, adapter_source)
         model.eval()
-        return cls(model=model, tokenizer=tokenizer, torch=torch, settings=settings)
+        return cls(model=model, tokenizer=tokenizer, torch=torch, settings=settings, is_multimodal=is_multimodal)
 
     def generate_messages(self, messages: Sequence[dict[str, str]]) -> GenerationResult:
         if self.torch.cuda.is_available():
             self.torch.cuda.synchronize()
         started = time.perf_counter()
-        prompt = self.tokenizer.apply_chat_template(
-            list(messages),
-            tokenize=False,
-            add_generation_prompt=True,
-        )
-        inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
+        if self._is_multimodal:
+            multimodal_messages = [
+                {
+                    "role": message["role"],
+                    "content": [{"type": "text", "text": message["content"]}]
+                    if isinstance(message["content"], str)
+                    else message["content"],
+                }
+                for message in messages
+            ]
+            inputs = self.tokenizer.apply_chat_template(
+                multimodal_messages,
+                add_generation_prompt=True,
+                tokenize=True,
+                return_dict=True,
+                return_tensors="pt",
+            ).to(self.model.device)
+        else:
+            prompt = self.tokenizer.apply_chat_template(
+                list(messages),
+                tokenize=False,
+                add_generation_prompt=True,
+            )
+            inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
         input_tokens = int(inputs["input_ids"].shape[1])
+        prompt_preparation_latency = time.perf_counter() - started
         kwargs: dict[str, Any] = {
             "max_new_tokens": self.settings.max_new_tokens,
             "do_sample": self.settings.do_sample,
@@ -222,17 +258,25 @@ class HuggingFaceGenerator:
         if self.settings.no_repeat_ngram_size > 0:
             kwargs["no_repeat_ngram_size"] = self.settings.no_repeat_ngram_size
 
+        generation_started = time.perf_counter()
         with self.torch.no_grad():
             generated_ids = self.model.generate(**inputs, **kwargs)
         if self.torch.cuda.is_available():
             self.torch.cuda.synchronize()
         latency = time.perf_counter() - started
+        generation_latency = time.perf_counter() - generation_started
         completion_ids = generated_ids[0][input_tokens:]
         output_tokens = int(completion_ids.shape[0])
         text = self.tokenizer.decode(completion_ids, skip_special_tokens=True).strip()
         return GenerationResult(
             text=text,
-            measurement=GenerationMeasurement.from_counts(input_tokens, output_tokens, latency),
+            measurement=GenerationMeasurement(
+                **{
+                    **GenerationMeasurement.from_counts(input_tokens, output_tokens, latency).to_dict(),
+                    "prompt_preparation_latency_seconds": prompt_preparation_latency,
+                    "model_generation_latency_seconds": generation_latency,
+                }
+            ),
         )
 
     def answer(
@@ -249,6 +293,10 @@ class HuggingFaceGenerator:
                 require_retrieved_context=require_retrieved_context,
             )
         )
+
+    def count_context_tokens(self, contexts: Sequence[str]) -> int:
+        """Count standalone context tokens, excluding chat-template and question tokens."""
+        return sum(len(self.tokenizer.encode(text, add_special_tokens=False)) for text in contexts)
 
     def hypothetical_document(self, question: str) -> GenerationResult:
         return self.generate_messages(build_hyde_messages(question))

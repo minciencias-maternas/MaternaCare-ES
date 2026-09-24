@@ -4,13 +4,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable, Protocol, Sequence
 
 from .data import BenchmarkSample
 from .generation import GenerationResult
-from .telemetry import GenerationMeasurement
+from .telemetry import GenerationMeasurement, ResourceSampler, resolve_cuda_device_identity, resolve_cuda_device_index
 
 
 class HypotheticalGenerator(Protocol):
@@ -28,6 +29,8 @@ class HypotheticalRecord:
     text: str
     measurement: GenerationMeasurement
     cache_hit: bool
+    resource_metrics: dict[str, Any] | None = None
+    model_load_latency_seconds: float | None = None
 
 
 def question_fingerprint(question: str) -> str:
@@ -82,6 +85,8 @@ def prepare_hypothetical_documents(
     model_id: str,
     generator_identity: dict[str, Any],
     generator_factory: Callable[[], HypotheticalGenerator],
+    sample_resource_metrics: bool = False,
+    telemetry_interval_seconds: float = 0.5,
 ) -> dict[str, HypotheticalRecord]:
     """Generate only cache misses using a dedicated generator factory."""
 
@@ -98,12 +103,24 @@ def prepare_hypothetical_documents(
     if not missing:
         return records
 
+    load_started = time.perf_counter()
     generator = generator_factory()
+    model_load_latency = time.perf_counter() - load_started
+    gpu_device_index = resolve_cuda_device_index(getattr(generator, "model", None)) if sample_resource_metrics and telemetry_interval_seconds > 0 else None
+    gpu_device_identity = resolve_cuda_device_identity(
+        getattr(generator, "torch", None), gpu_device_index
+    ) if gpu_device_index is not None else None
     cache_path.parent.mkdir(parents=True, exist_ok=True)
     try:
         with cache_path.open("a", encoding="utf-8", newline="\n") as output:
             for sample in missing:
-                generated = generator.hypothetical_document(sample.question)
+                if sample_resource_metrics:
+                    with ResourceSampler(telemetry_interval_seconds, gpu_device_index, gpu_device_identity) as sampler:
+                        generated = generator.hypothetical_document(sample.question)
+                    resource_metrics = sampler.summary()
+                else:
+                    generated = generator.hypothetical_document(sample.question)
+                    resource_metrics = None
                 record = HypotheticalRecord(
                     sample_id=sample.qa_id,
                     question_sha256=question_fingerprint(sample.question),
@@ -112,6 +129,8 @@ def prepare_hypothetical_documents(
                     text=generated.text,
                     measurement=generated.measurement,
                     cache_hit=False,
+                    resource_metrics=resource_metrics,
+                    model_load_latency_seconds=model_load_latency if sample_resource_metrics else None,
                 )
                 row = {
                     "sample_id": record.sample_id,

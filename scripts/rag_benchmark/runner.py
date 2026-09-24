@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import hashlib
+import importlib.metadata
 import json
+import math
+import platform
 import statistics
 import time
 from dataclasses import asdict, dataclass
@@ -23,7 +26,7 @@ from .hyde import HypotheticalRecord, prepare_hypothetical_documents
 from .metrics import METRIC_NAMES, RagasEvaluator
 from .model_registry import MODEL_REGISTRY, resolve_adapter_source
 from .retrieval import BM25Retriever, DenseRetriever, HybridRetriever, RetrievedChunk, Retriever, safe_name
-from .telemetry import combine_system_measurements
+from .telemetry import ResourceSampler, combine_system_measurements, resolve_cuda_device_identity, resolve_cuda_device_index
 
 
 Strategy = Literal["no_rag", "hybrid", "hyde"]
@@ -64,6 +67,7 @@ class BenchmarkConfig:
     attn_implementation: str | None = None
     resume: bool = True
     limit: int | None = None
+    telemetry_interval_seconds: float = 0.5
 
 
 def load_and_validate_data(config: BenchmarkConfig) -> tuple[list[BenchmarkSample], list[CorpusChunk]]:
@@ -194,9 +198,45 @@ def _read_jsonl(path: Path) -> list[dict[str, Any]]:
     return rows
 
 
+def _serialize_row(row: dict[str, Any]) -> str:
+    def sanitize(value: Any) -> Any:
+        if isinstance(value, float) and not math.isfinite(value):
+            return None
+        if isinstance(value, dict):
+            return {key: sanitize(item) for key, item in value.items()}
+        if isinstance(value, list):
+            return [sanitize(item) for item in value]
+        return value
+
+    finite = sanitize(row)
+    try:
+        return json.dumps(finite, ensure_ascii=False, allow_nan=False)
+    except (TypeError, ValueError):
+        row["error"] = row.get("error") or "serialization: fallback to str coercion"
+        row["completion_status"] = "error"
+        finite["error"] = row["error"]
+        finite["completion_status"] = "error"
+        return json.dumps(finite, ensure_ascii=False, allow_nan=False, default=str)
+
+
 def _mean(rows: list[dict[str, Any]], key: str) -> float | None:
     values = [float(row[key]) for row in rows if row.get(key) is not None]
     return statistics.mean(values) if values else None
+
+
+def _mean_nested(rows: list[dict[str, Any]], parent: str, key: str) -> float | None:
+    values = [float(value) for row in rows if isinstance(row.get(parent), dict) if (value := row[parent].get(key)) is not None]
+    return statistics.mean(values) if values else None
+
+
+def _count_context_tokens(generator: Any, contexts: list[str]) -> int | None:
+    try:
+        counter = getattr(generator, "count_context_tokens", None)
+        if not callable(counter):
+            return None
+        return counter(contexts)
+    except Exception:
+        return None
 
 
 def _write_summary(path: Path, config: BenchmarkConfig, identity: dict[str, Any], output_jsonl: Path, rows: list[dict[str, Any]]) -> None:
@@ -222,6 +262,18 @@ def _write_summary(path: Path, config: BenchmarkConfig, identity: dict[str, Any]
                 "output_tokens_per_second",
             )
         },
+        "operations_mean": {
+            **{
+                key: _mean(rows, key)
+                for key in ("input_tokens", "output_tokens", "total_tokens", "retrieved_chunk_count", "retrieved_context_tokens", "retrieved_context_characters", "retrieved_context_utf8_bytes", "retrieval_latency_seconds", "generation_latency_seconds", "end_to_end_latency_seconds", "output_tokens_per_second", "retrieval_hit_at_k", "retrieval_recall_at_k", "retrieval_reciprocal_rank", "retrieval_ndcg_at_k", "prompt_preparation_latency_seconds", "model_generation_latency_seconds", "model_load_latency_seconds", "hyde_model_load_latency_seconds", "gpu_energy_joules_estimate")
+            },
+            "hyde_gpu_energy_joules_estimate": _mean_nested(rows, "hyde_resource_metrics", "gpu_energy_joules_estimate"),
+        },
+        "resource_metrics_mean_peak": {
+            key: {stat: _mean(rows, f"{key}_{stat}") for stat in ("mean", "peak")}
+            for key in ("process_cpu_percent", "system_cpu_percent", "process_rss_bytes", "process_thread_count", "system_available_ram_bytes", "cpu_physical_core_count", "cpu_logical_core_count", "cpu_temperature_celsius", "gpu_utilization_percent", "gpu_memory_used_bytes", "gpu_memory_total_bytes", "gpu_temperature_celsius", "gpu_power_watts", "gpu_sm_clock_mhz")
+        },
+        "runtime": _runtime_metadata(config),
         "configuration": {
             "retrieval_k": config.retrieval_k,
             "retrieval_embedding_model": config.retrieval_embedding_model,
@@ -234,6 +286,31 @@ def _write_summary(path: Path, config: BenchmarkConfig, identity: dict[str, Any]
     }
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(summary, ensure_ascii=False, indent=2, allow_nan=False) + "\n", encoding="utf-8")
+
+
+def _runtime_metadata(config: BenchmarkConfig) -> dict[str, Any]:
+    versions: dict[str, str | None] = {}
+    for package in ("torch", "transformers", "ragas", "psutil", "nvidia-ml-py"):
+        try:
+            versions[package] = importlib.metadata.version(package)
+        except importlib.metadata.PackageNotFoundError:
+            versions[package] = None
+    try:
+        import torch
+        cuda_available = bool(torch.cuda.is_available())
+        devices = [torch.cuda.get_device_name(index) for index in range(torch.cuda.device_count())] if cuda_available else []
+    except Exception:
+        cuda_available, devices = None, []
+    return {"python": platform.python_version(), "platform": platform.platform(), "libraries": versions, "providers": {"psutil": versions["psutil"] is not None, "nvml": versions["nvidia-ml-py"] is not None}, "cuda_available": cuda_available, "gpu_devices": devices, "resource_sample_interval_seconds": config.telemetry_interval_seconds, "hyde_provider": config.hyde_provider if config.strategy == "hyde" else None}
+
+
+def _retrieval_diagnostics(retrieved: list[RetrievedChunk], reference_chunk_id: str | None, k: int) -> dict[str, Any]:
+    if not reference_chunk_id:
+        return {"retrieval_hit_at_k": None, "retrieval_recall_at_k": None, "retrieval_reciprocal_rank": None, "retrieval_ndcg_at_k": None}
+    rank = next((index for index, item in enumerate(retrieved[:k], start=1) if item.chunk_id == reference_chunk_id), None)
+    reciprocal = 1.0 / rank if rank else 0.0
+    ndcg = 1.0 / math.log2(rank + 1) if rank else 0.0
+    return {"retrieval_hit_at_k": int(rank is not None), "retrieval_recall_at_k": int(rank is not None), "retrieval_reciprocal_rank": reciprocal, "retrieval_ndcg_at_k": ndcg}
 
 
 async def run_benchmark(
@@ -255,7 +332,9 @@ async def run_benchmark(
     existing = _read_jsonl(output_jsonl) if config.resume else []
     successful = [row for row in existing if not row.get("error") and not row.get("metric_errors")]
     if successful != existing:
+        dropped = len(existing) - len(successful)
         output_jsonl.write_text("".join(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n" for row in successful), encoding="utf-8")
+        print(f"Resume: dropped {dropped} failed row(s) from {output_jsonl} to re-run them", flush=True)
     existing = successful
     completed = {str(row["qa_id"]) for row in existing if row.get("qa_id") is not None}
     _log(
@@ -308,6 +387,8 @@ async def run_benchmark(
             model_id=config.hyde_generator_model,
             generator_identity=_hyde_identity(config),
             generator_factory=hyde_generator_factory,
+            sample_resource_metrics=config.hyde_provider == "huggingface",
+            telemetry_interval_seconds=config.telemetry_interval_seconds,
         )
         cache_hits = sum(1 for record in hypothetical_records.values() if record.cache_hit)
         _log(
@@ -336,7 +417,9 @@ async def run_benchmark(
         )
     )
     _log(f"answer model loading model={spec.model_id}")
+    load_started = time.perf_counter()
     answer_generator = answer_generator_factory()
+    model_load_latency = time.perf_counter() - load_started
     _log("answer model ready")
     try:
         _log(f"evaluator loading model={config.evaluator_model}")
@@ -362,6 +445,9 @@ async def run_benchmark(
                 }
                 try:
                     hypothetical = hypothetical_records.get(sample.qa_id)
+                    if hypothetical and not hypothetical.cache_hit and config.hyde_provider == "huggingface":
+                        row["hyde_model_load_latency_seconds"] = hypothetical.model_load_latency_seconds
+                        row["hyde_resource_metrics"] = hypothetical.resource_metrics
                     retrieved, retrieval_latency = retrieve_for_strategy(
                         strategy=config.strategy,
                         question=sample.question,
@@ -375,11 +461,21 @@ async def run_benchmark(
                         f"sample {sample_index}/{len(samples)} stage=retrieval_done "
                         f"chunks={len(contexts)} latency={retrieval_latency:.2f}s"
                     )
-                    answer = answer_generator.answer(
-                        sample.question,
-                        contexts,
-                        require_retrieved_context=config.strategy != "no_rag",
-                    )
+                    gpu_device_index = resolve_cuda_device_index(getattr(answer_generator, "model", None)) if config.telemetry_interval_seconds > 0 else None
+                    gpu_device_identity = resolve_cuda_device_identity(
+                        getattr(answer_generator, "torch", None), gpu_device_index
+                    ) if gpu_device_index is not None else None
+                    sampler = ResourceSampler(config.telemetry_interval_seconds, gpu_device_index, gpu_device_identity)
+                    try:
+                        with sampler:
+                            answer = answer_generator.answer(
+                                sample.question,
+                                contexts,
+                                require_retrieved_context=config.strategy != "no_rag",
+                            )
+                    finally:
+                        resource_metrics = sampler.summary()
+                        row.update(resource_metrics)
                     _log(
                         f"sample {sample_index}/{len(samples)} stage=generation_done "
                         f"latency={answer.measurement.generation_latency_seconds:.2f}s "
@@ -391,6 +487,16 @@ async def run_benchmark(
                             "retrieved_contexts": contexts,
                             "retrieved_chunk_ids": [item.chunk_id for item in retrieved],
                             "retrieved_metadata": [item.metadata for item in retrieved],
+                            "retrieved_chunk_count": len(retrieved),
+                            "retrieved_context_characters": sum(len(text) for text in contexts),
+                            "retrieved_context_utf8_bytes": sum(len(text.encode("utf-8")) for text in contexts),
+                            "retrieved_context_tokens": _count_context_tokens(answer_generator, contexts),
+                            "model_load_latency_seconds": model_load_latency,
+                            "prompt_preparation_latency_seconds": answer.measurement.prompt_preparation_latency_seconds,
+                            "model_generation_latency_seconds": answer.measurement.model_generation_latency_seconds,
+                            "possible_truncation": answer.measurement.output_tokens >= config.generation_settings.max_new_tokens,
+                            "completion_status": "possible_truncation" if answer.measurement.output_tokens >= config.generation_settings.max_new_tokens else "completed",
+                            **_retrieval_diagnostics(retrieved, sample.reference_chunk_id, config.retrieval_k),
                             **combine_system_measurements(
                                 answer.measurement,
                                 retrieval_latency,
@@ -428,9 +534,10 @@ async def run_benchmark(
                 except Exception as exc:
                     row["error"] = f"{type(exc).__name__}: {exc}"
                     _log(f"sample {sample_index}/{len(samples)} stage=failed error={row['error']}")
+                    row["completion_status"] = "error"
                     for metric_name in METRIC_NAMES:
                         row.setdefault(metric_name, None)
-                output.write(json.dumps(row, ensure_ascii=False, allow_nan=False) + "\n")
+                output.write(_serialize_row(row) + "\n")
                 output.flush()
                 _log(
                     f"sample {sample_index}/{len(samples)} stage=written "
@@ -439,7 +546,10 @@ async def run_benchmark(
                 if not row.get("error") and not row.get("metric_errors"):
                     completed.add(sample.qa_id)
     finally:
-        answer_generator.close()
+        try:
+            answer_generator.close()
+        except Exception as exc:
+            print(f"WARNING: failed to close answer generator: {type(exc).__name__}: {exc}", flush=True)
 
     rows = _read_jsonl(output_jsonl)
     _write_summary(summary_path, config, identity, output_jsonl, rows)

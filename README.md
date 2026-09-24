@@ -100,10 +100,10 @@ MaternaCare-ES/
 │   ├── smoke-medgemma/                # Smoke test MedGemma
 │   ├── gemma4-base/                   # Baseline Gemma 4
 │   ├── medgemma-base/                 # Baseline MedGemma
-│   └── logs/                          # Logs de ejecución
+│   └──logs/                          # Logs de ejecución
+│   └──csv_outputs/                       # Resultados agregados en CSV
 ├── datasets/                          # Mirror local opcional de MaternaQA-es
 │   └── obstetrics/qa/publication/     # Variantes SFT publicadas
-├── csv_outputs/                       # Resultados agregados en CSV
 ├── docs/research_notes/               # Notas técnicas del proyecto
 ├── papers/                            # Documentos del paper
 └── requirements.txt
