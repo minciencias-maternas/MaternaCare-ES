@@ -3,13 +3,16 @@ from __future__ import annotations
 import asyncio
 import importlib
 import io
+import builtins
 import json
+import math
 import subprocess
 import sys
 import tempfile
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from unittest.mock import patch
 
@@ -36,8 +39,8 @@ from scripts.rag_benchmark.hyde import load_hyde_cache
 from scripts.rag_benchmark.metrics import METRIC_FIELDS, METRIC_NAMES, RagasEvaluator, build_metrics
 from scripts.rag_benchmark.retrieval import DenseRetriever, reciprocal_rank_fusion
 from scripts.rag_benchmark.runner import retrieve_for_strategy
-from scripts.rag_benchmark.runner import _experiment_configuration, _hyde_cache_path, _hyde_identity, _output_paths, _read_jsonl, run_benchmark
-from scripts.rag_benchmark.telemetry import GenerationMeasurement, combine_system_measurements
+from scripts.rag_benchmark.runner import _experiment_configuration, _hyde_cache_path, _hyde_identity, _output_paths, _read_jsonl, _retrieval_diagnostics, run_benchmark
+from scripts.rag_benchmark.telemetry import GenerationMeasurement, ResourceSampler, _open_windows_nvml_dll_directories, combine_system_measurements, resolve_cuda_device_identity, resolve_cuda_device_index, resolve_nvml_device_index
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -263,6 +266,34 @@ class RetrievalTests(unittest.TestCase):
         self.assertEqual(0, answer_generator.calls)
         self.assertEqual("hypothetical clinical document", dense.query)
 
+    def test_hyde_resource_metrics_are_current_run_only_and_cache_compatible(self) -> None:
+        sample = BenchmarkSample("q1", "clinical question", "reference")
+        measurement = GenerationMeasurement.from_counts(10, 4, 0.1)
+
+        class LocalHydeGenerator:
+            model = SimpleNamespace(device="cpu")
+            def hypothetical_document(self, question: str) -> GenerationResult:
+                return GenerationResult("hypothetical", measurement)
+            def close(self) -> None: pass
+
+        identity = {"provider": "huggingface", "model": "local"}
+        with tempfile.TemporaryDirectory() as temp_dir, patch.dict(sys.modules, {"psutil": None, "pynvml": None}):
+            cache_path = Path(temp_dir) / "hyde.jsonl"
+            generated = prepare_hypothetical_documents(
+                [sample], cache_path, "local", identity, LocalHydeGenerator,
+                sample_resource_metrics=True,
+            )[sample.qa_id]
+            cached = prepare_hypothetical_documents(
+                [sample], cache_path, "local", identity,
+                lambda: (_ for _ in ()).throw(AssertionError("cache hit must not create a generator")),
+                sample_resource_metrics=True,
+            )[sample.qa_id]
+        self.assertFalse(generated.cache_hit)
+        self.assertIsNotNone(generated.resource_metrics)
+        self.assertTrue(cached.cache_hit)
+        self.assertIsNone(cached.resource_metrics)
+        self.assertIsNone(cached.model_load_latency_seconds)
+
     def test_openai_hyde_uses_responses_api_usage_and_observed_latency(self) -> None:
         calls: list[dict[str, Any]] = []
 
@@ -331,6 +362,179 @@ class RetrievalTests(unittest.TestCase):
 
 
 class TelemetryTests(unittest.TestCase):
+    def test_reference_chunk_diagnostics_and_missing_reference(self) -> None:
+        class Chunk:
+            def __init__(self, chunk_id: str) -> None: self.chunk_id = chunk_id
+        retrieved = [Chunk("other"), Chunk("reference")]
+        diagnostic = _retrieval_diagnostics(retrieved, "reference", 5)
+        self.assertEqual((1, 1, 0.5), (diagnostic["retrieval_hit_at_k"], diagnostic["retrieval_recall_at_k"], diagnostic["retrieval_reciprocal_rank"]))
+        self.assertAlmostEqual(1 / math.log2(3), diagnostic["retrieval_ndcg_at_k"])
+        self.assertNotEqual(diagnostic["retrieval_reciprocal_rank"], diagnostic["retrieval_ndcg_at_k"])
+        self.assertIsNone(_retrieval_diagnostics(retrieved, None, 5)["retrieval_hit_at_k"])
+        self.assertEqual(0, _retrieval_diagnostics(retrieved, "reference", 1)["retrieval_hit_at_k"])
+
+    def test_disabled_resource_sampler_does_not_import_optional_providers(self) -> None:
+        with patch("builtins.__import__", wraps=builtins.__import__) as importer:
+            sampler = ResourceSampler(0, gpu_device_index=1)
+            with sampler:
+                pass
+            imported = [call.args[0] for call in importer.call_args_list]
+        self.assertNotIn("psutil", imported)
+        self.assertNotIn("pynvml", imported)
+        self.assertIsNone(sampler.summary()["gpu_energy_joules_estimate"])
+
+    def test_resource_sampler_observes_short_operation_and_aggregates_deterministically(self) -> None:
+        with patch.dict(sys.modules, {"psutil": None, "pynvml": None}):
+            sampler = ResourceSampler(0.5)
+        timestamps = iter(range(10))
+        sampler._sample = lambda: {"_sample_time_monotonic": float(next(timestamps)), "process_rss_bytes": 42}
+        with sampler:
+            pass
+        summary = sampler.summary()
+        self.assertGreaterEqual(summary["sample_count"], 2)
+        self.assertEqual((42.0, 42), (summary["process_rss_bytes_mean"], summary["process_rss_bytes_peak"]))
+
+    def test_gpu_energy_estimate_uses_trapezoidal_integration_and_rejects_invalid_series(self) -> None:
+        samples = [
+            {"_sample_time_monotonic": 10.0, "gpu_power_watts": 2.0},
+            {"_sample_time_monotonic": 12.0, "gpu_power_watts": 4.0},
+        ]
+        self.assertEqual(6.0, ResourceSampler.integrate_gpu_energy(samples))
+        self.assertIsNone(ResourceSampler.integrate_gpu_energy(samples[:1]))
+        self.assertIsNone(ResourceSampler.integrate_gpu_energy([samples[0], {"_sample_time_monotonic": 12.0}]))
+        self.assertIsNone(ResourceSampler.integrate_gpu_energy([samples[1], samples[0]]))
+        self.assertIsNone(ResourceSampler.integrate_gpu_energy([
+            {"_sample_time_monotonic": 10.0, "gpu_power_watts": 2.0},
+            {"_sample_time_monotonic": 10.9, "gpu_power_watts": 4.0},
+        ]))
+
+    def test_nvml_device_mapping_uses_stable_identity_and_fails_closed(self) -> None:
+        devices = [
+            SimpleNamespace(uuid="GPU-a1", name="GPU A", total_memory=1024),
+            SimpleNamespace(uuid="GPU-b2", name="GPU B", total_memory=2048),
+            SimpleNamespace(uuid="GPU-c3", name="GPU C", total_memory=4096),
+        ]
+        class Nvml:
+            @staticmethod
+            def nvmlDeviceGetCount() -> int: return len(devices)
+            @staticmethod
+            def nvmlDeviceGetHandleByIndex(index: int) -> Any: return devices[index]
+            @staticmethod
+            def nvmlDeviceGetUUID(device: Any) -> str: return device.uuid
+            @staticmethod
+            def nvmlDeviceGetName(device: Any) -> str: return device.name
+            @staticmethod
+            def nvmlDeviceGetMemoryInfo(device: Any) -> Any: return SimpleNamespace(total=device.total_memory)
+        self.assertEqual(1, resolve_nvml_device_index(1, Nvml, None, ("GPU B", 2048)))
+        self.assertIsNone(resolve_nvml_device_index(1, Nvml, None))
+        self.assertEqual(2, resolve_nvml_device_index(0, Nvml, "2,0"))
+        self.assertEqual(0, resolve_nvml_device_index(1, Nvml, "2,0"))
+        self.assertEqual(1, resolve_nvml_device_index(0, Nvml, "GPU-b2,GPU-a1"))
+        self.assertIsNone(resolve_nvml_device_index(0, Nvml, "GPU-a,GPU-a1"))
+        self.assertIsNone(resolve_nvml_device_index(0, Nvml, "GPU-dead"))
+        devices.extend((
+            SimpleNamespace(uuid="GPU-abcd1", name="GPU D", total_memory=8192),
+            SimpleNamespace(uuid="GPU-abcd2", name="GPU E", total_memory=16384),
+        ))
+        self.assertIsNone(resolve_nvml_device_index(0, Nvml, "GPU-abcd"))
+        self.assertIsNone(resolve_nvml_device_index(0, Nvml, "2,not-a-number"))
+        self.assertIsNone(resolve_nvml_device_index(0, Nvml, "2,2"))
+        self.assertIsNone(resolve_nvml_device_index(4, Nvml, "2,0"))
+        self.assertIsNone(resolve_nvml_device_index(3, Nvml, None))
+        self.assertIsNone(resolve_nvml_device_index(5, Nvml, None, ("GPU B", 2048)))
+        devices.append(SimpleNamespace(uuid="GPU-b3", name="GPU B", total_memory=2048))
+        self.assertIsNone(resolve_nvml_device_index(1, Nvml, None, ("GPU B", 2048)))
+
+    def test_cuda_device_identity_uses_public_name_and_memory_properties(self) -> None:
+        torch = SimpleNamespace(cuda=SimpleNamespace(
+            get_device_properties=lambda index: SimpleNamespace(name="GPU B", total_memory=2048)
+        ))
+        self.assertEqual(("GPU B", 2048), resolve_cuda_device_identity(torch, 1))
+        torch.cuda.get_device_properties = lambda index: SimpleNamespace(name="GPU B")
+        self.assertIsNone(resolve_cuda_device_identity(torch, 1))
+
+    def test_windows_nvml_dll_directories_remain_open_until_after_shutdown(self) -> None:
+        events: list[str] = []
+        class DllDirectory:
+            def close(self) -> None: events.append("close")
+        with patch.dict("os.environ", {"ProgramFiles": "C:/Program Files", "SystemRoot": "C:/Windows"}), \
+             patch("pathlib.Path.is_dir", return_value=True), \
+             patch("scripts.rag_benchmark.telemetry.os.add_dll_directory", create=True, side_effect=lambda path: events.append(path) or DllDirectory()):
+            handles = _open_windows_nvml_dll_directories()
+        self.assertEqual(2, len(handles))
+        sampler = ResourceSampler(0)
+        sampler._nvml = SimpleNamespace(nvmlShutdown=lambda: events.append("shutdown"))
+        sampler._nvml_initialized = True
+        sampler._nvml_dll_handles = handles
+        sampler._shutdown_nvml()
+        self.assertEqual("shutdown", events[2])
+        self.assertEqual(["close", "close"], events[3:])
+
+    def test_nvml_uses_resolved_device_and_shuts_down_after_inference_error(self) -> None:
+        calls: dict[str, Any] = {"init": 0, "shutdown": 0, "handles": [], "identity_names": [], "identity_memory": [], "sampled": [], "phase": "discovery"}
+        handles = {index: SimpleNamespace(index=index) for index in range(3)}
+
+        class FakeNvml:
+            NVML_TEMPERATURE_GPU = 0
+            NVML_CLOCK_SM = 1
+            @staticmethod
+            def nvmlInit() -> None: calls.__setitem__("init", calls["init"] + 1)
+            @staticmethod
+            def nvmlShutdown() -> None: calls.__setitem__("shutdown", calls["shutdown"] + 1)
+            @staticmethod
+            def nvmlDeviceGetHandleByIndex(index: int) -> object:
+                calls["handles"].append(index); return handles[index]
+            @staticmethod
+            def nvmlDeviceGetCount() -> int: return 3
+            @staticmethod
+            def nvmlDeviceGetName(device: object) -> str:
+                calls["identity_names"].append(device.index); return f"GPU {device.index}"
+            @staticmethod
+            def nvmlDeviceGetMemoryInfo(device: object) -> Any:
+                record = "identity" if calls["phase"] == "discovery" else "sampled"
+                calls["identity_memory" if record == "identity" else "sampled"].append(device.index if record == "identity" else ("memory", device.index))
+                return SimpleNamespace(used=100, total=200)
+            @staticmethod
+            def nvmlDeviceGetUtilizationRates(device: object) -> Any:
+                calls["phase"] = "sampling"
+                calls["sampled"].append(("utilization", device.index)); raise RuntimeError("unsupported utilization")
+            @staticmethod
+            def nvmlDeviceGetTemperature(device: object, sensor: int) -> int:
+                calls["sampled"].append(("temperature", device.index)); return 40
+            @staticmethod
+            def nvmlDeviceGetPowerUsage(device: object) -> int:
+                calls["sampled"].append(("power", device.index)); return 5000
+            @staticmethod
+            def nvmlDeviceGetClockInfo(device: object, clock: int) -> int:
+                calls["sampled"].append(("sm_clock", device.index)); return 1000
+
+        with patch.dict(sys.modules, {"psutil": None, "pynvml": FakeNvml}), patch.dict("os.environ", {}, clear=True):
+            sampler = ResourceSampler(0.5, gpu_device_index=2, gpu_device_identity=("GPU 2", 200))
+            with self.assertRaisesRegex(RuntimeError, "inference failed"):
+                with sampler:
+                    raise RuntimeError("inference failed")
+        summary = sampler.summary()
+        self.assertEqual((1, 1), (calls["init"], calls["shutdown"]))
+        self.assertEqual([0, 1, 2], calls["handles"][:3])
+        self.assertEqual([0, 1, 2], calls["identity_names"])
+        self.assertEqual([0, 1, 2], calls["identity_memory"])
+        self.assertTrue(calls["sampled"])
+        self.assertEqual({2}, {index for _, index in calls["sampled"]})
+        self.assertEqual({"utilization", "memory", "temperature", "power", "sm_clock"}, {name for name, _ in calls["sampled"]})
+        self.assertIsNone(summary["gpu_utilization_percent_mean"])
+        self.assertEqual(40.0, summary["gpu_temperature_celsius_mean"])
+        self.assertIsNone(summary["gpu_energy_joules_estimate"])
+
+    def test_cuda_device_resolution_never_guesses_for_cpu_or_multigpu_models(self) -> None:
+        class Model:
+            device = "cuda:2"
+        self.assertEqual(2, resolve_cuda_device_index(Model()))
+        Model.device = "cpu"
+        self.assertIsNone(resolve_cuda_device_index(Model()))
+        Model.device = "cuda:0"
+        Model.hf_device_map = {"layer0": "cuda:0", "layer1": "cuda:1"}
+        self.assertIsNone(resolve_cuda_device_index(Model()))
+
     def test_token_and_timing_formulas(self) -> None:
         answer = GenerationMeasurement.from_counts(100, 20, 2.0)
         hypothetical = GenerationMeasurement.from_counts(40, 10, 1.0)
@@ -516,6 +720,26 @@ class CorrectionTests(unittest.TestCase):
             self.assertEqual(1, generator.calls)
             self.assertFalse(generator.require_retrieved_context)
             rows = _read_jsonl(output); self.assertEqual(1, len(rows)); self.assertNotIn("error", rows[0])
+
+    def test_inference_error_row_has_error_completion_status(self) -> None:
+        class Generator:
+            def answer(
+                self,
+                question: str,
+                contexts: list[str],
+                *,
+                require_retrieved_context: bool,
+            ) -> GenerationResult:
+                raise RuntimeError("generation failed")
+            def close(self) -> None: pass
+        class Evaluator:
+            async def score(self, **kwargs: Any) -> dict[str, float]: return {name: 0.5 for name in METRIC_NAMES}
+        with tempfile.TemporaryDirectory() as temp_dir:
+            config = self.config(temp_dir, "--telemetry-interval-seconds", "0")
+            output, _ = asyncio.run(run_benchmark(config, Generator, evaluator_factory=Evaluator))
+            row = _read_jsonl(output)[0]
+        self.assertEqual("error", row["completion_status"])
+        self.assertIn("generation failed", row["error"])
 
     def test_result_and_hyde_truncated_tail_recovery(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

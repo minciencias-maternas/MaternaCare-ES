@@ -243,6 +243,7 @@ class HuggingFaceGenerator:
             )
             inputs = self.tokenizer([prompt], return_tensors="pt").to(self.model.device)
         input_tokens = int(inputs["input_ids"].shape[1])
+        prompt_preparation_latency = time.perf_counter() - started
         kwargs: dict[str, Any] = {
             "max_new_tokens": self.settings.max_new_tokens,
             "do_sample": self.settings.do_sample,
@@ -257,17 +258,25 @@ class HuggingFaceGenerator:
         if self.settings.no_repeat_ngram_size > 0:
             kwargs["no_repeat_ngram_size"] = self.settings.no_repeat_ngram_size
 
+        generation_started = time.perf_counter()
         with self.torch.no_grad():
             generated_ids = self.model.generate(**inputs, **kwargs)
         if self.torch.cuda.is_available():
             self.torch.cuda.synchronize()
         latency = time.perf_counter() - started
+        generation_latency = time.perf_counter() - generation_started
         completion_ids = generated_ids[0][input_tokens:]
         output_tokens = int(completion_ids.shape[0])
         text = self.tokenizer.decode(completion_ids, skip_special_tokens=True).strip()
         return GenerationResult(
             text=text,
-            measurement=GenerationMeasurement.from_counts(input_tokens, output_tokens, latency),
+            measurement=GenerationMeasurement(
+                **{
+                    **GenerationMeasurement.from_counts(input_tokens, output_tokens, latency).to_dict(),
+                    "prompt_preparation_latency_seconds": prompt_preparation_latency,
+                    "model_generation_latency_seconds": generation_latency,
+                }
+            ),
         )
 
     def answer(
@@ -284,6 +293,10 @@ class HuggingFaceGenerator:
                 require_retrieved_context=require_retrieved_context,
             )
         )
+
+    def count_context_tokens(self, contexts: Sequence[str]) -> int:
+        """Count standalone context tokens, excluding chat-template and question tokens."""
+        return sum(len(self.tokenizer.encode(text, add_special_tokens=False)) for text in contexts)
 
     def hypothetical_document(self, question: str) -> GenerationResult:
         return self.generate_messages(build_hyde_messages(question))

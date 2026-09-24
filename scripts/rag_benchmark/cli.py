@@ -79,6 +79,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--attn-implementation", default=None)
     parser.add_argument("--resume", action=argparse.BooleanOptionalAction, default=True)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument("--telemetry-interval-seconds", type=float, default=0.5, help="Resource sampling interval during answer inference and uncached local Hugging Face HyDE; set to 0 to disable sampling.")
     parser.add_argument(
         "--validate-data-only",
         action="store_true",
@@ -139,6 +140,7 @@ def config_from_args(args: argparse.Namespace) -> BenchmarkConfig:
         attn_implementation=args.attn_implementation,
         resume=args.resume,
         limit=args.limit,
+        telemetry_interval_seconds=args.telemetry_interval_seconds,
     )
 
 

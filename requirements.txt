@@ -5,6 +5,7 @@
 #   - CPU only:               pip install -r requirements-cpu.txt
 
 datasets==4.4.0
+psutil==7.2.2
 pandas==2.3.3
 jsonlines==4.0.0
 tqdm==4.67.1
