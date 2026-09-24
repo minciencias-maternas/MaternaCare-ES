@@ -1,0 +1,115 @@
+<mxfile host="Electron">
+  <diagram name="Base vs QLoRA inference" id="inference-pipeline">
+    <mxGraphModel dx="975" dy="588" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="620" pageHeight="1080" math="1" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="itembadge" parent="1" style="ellipse;html=1;fillColor=#1683A8;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="01" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="125" as="geometry" />
+        </mxCell>
+        <mxCell id="item" parent="1" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=13;" value="&lt;b&gt;Test item&lt;/b&gt;&lt;br&gt;qa_id · question · source context · reference answer" vertex="1">
+          <mxGeometry height="68" width="440" x="90" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="builderbadge" parent="1" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="02" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="227" as="geometry" />
+        </mxCell>
+        <mxCell id="builder" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=13;" value="&lt;b&gt;Prompt builder&lt;/b&gt;&lt;br&gt;chat template · add_generation_prompt = true" vertex="1">
+          <mxGeometry height="62" width="440" x="90" y="210" as="geometry" />
+        </mxCell>
+        <mxCell id="render" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="125" width="480" x="70" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="rbadge" parent="render" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="28" width="28" x="20" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="rhead" parent="render" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontColor=#14324B;" value="&lt;b&gt;Rendered Spanish prompt&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="300" x="60" y="10" as="geometry" />
+        </mxCell>
+        <mxCell id="tok1" parent="render" style="rounded=0;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=11;fontStyle=1;" value="SYSTEM" vertex="1">
+          <mxGeometry height="36" width="85" x="25" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="tok2" parent="render" style="rounded=0;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=11;fontStyle=1;" value="CONTEXT" vertex="1">
+          <mxGeometry height="36" width="105" x="115" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="tok3" parent="render" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=11;fontStyle=1;" value="QUESTION" vertex="1">
+          <mxGeometry height="36" width="105" x="225" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="tok4" parent="render" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=11;fontStyle=1;" value="ASSISTANT" vertex="1">
+          <mxGeometry height="36" width="110" x="335" y="58" as="geometry" />
+        </mxCell>
+        <mxCell id="dispatch" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=12;" value="route identically" vertex="1">
+          <mxGeometry height="70" width="130" x="245" y="470" as="geometry" />
+        </mxCell>
+        <mxCell id="pair" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;fontSize=13;" value="" vertex="1">
+          <mxGeometry height="285" width="540" x="40" y="575" as="geometry" />
+        </mxCell>
+        <mxCell id="pbadge" parent="pair" style="ellipse;html=1;fillColor=#D87922;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="04" vertex="1">
+          <mxGeometry height="28" width="28" x="10" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="phead" parent="pair" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontColor=#657786;" value="&lt;b&gt;PAIRED&lt;/b&gt;&lt;div&gt;&lt;b&gt;GENERATION&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="38" width="130" x="48" y="7" as="geometry" />
+        </mxCell>
+        <mxCell id="base" parent="pair" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="150" width="230" x="25" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="bh" parent="base" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontColor=#14324B;" value="&lt;b&gt;Base model&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;frozen W₀ · no adapter&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="155" x="55" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="bicon" parent="base" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#1683A8;fontSize=13;fontStyle=1;" value="W₀" vertex="1">
+          <mxGeometry height="35" width="35" x="15" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="bout" parent="base" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#1683A8;fontSize=12;fontFamily=monospace;" value="ŷᴮ = [t₁ t₂ … tₙ]" vertex="1">
+          <mxGeometry height="46" width="160" x="35" y="82" as="geometry" />
+        </mxCell>
+        <mxCell id="ql" parent="pair" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFF1DF;strokeColor=#D87922;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="150" width="230" x="285" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="qh" parent="ql" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontColor=#14324B;" value="&lt;font style=&quot;font-size: 13px;&quot;&gt;&lt;b&gt;Grounded QLoRA&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;same W₀ + PEFT adapter&lt;/font&gt;&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="160" x="55" y="18" as="geometry" />
+        </mxCell>
+        <mxCell id="qicon" parent="ql" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#D87922;fontSize=11;fontStyle=1;" value="W₀&lt;br&gt;+BA" vertex="1">
+          <mxGeometry height="35" width="35" x="15" y="20" as="geometry" />
+        </mxCell>
+        <mxCell id="qout" parent="ql" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#D87922;fontSize=12;fontFamily=monospace;" value="ŷᑫ = [t₁ t₂ … tₙ]" vertex="1">
+          <mxGeometry height="46" width="160" x="35" y="82" as="geometry" />
+        </mxCell>
+        <mxCell id="greedy" parent="pair" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F7F9FB;strokeColor=#CAD3DC;fontSize=13;" value="$$\hat y_t=\operatorname*{arg\,max}_v p(v\mid y_{1:t-1},c,q),\quad t\le512$$" vertex="1">
+          <mxGeometry height="48" width="390" x="75" y="222" as="geometry" />
+        </mxCell>
+        <mxCell id="provbadge" parent="1" style="ellipse;html=1;fillColor=#7C8B98;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="05" vertex="1">
+          <mxGeometry height="28" width="28" x="35" y="912" as="geometry" />
+        </mxCell>
+        <mxCell id="prov" parent="1" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=13;" value="&lt;b&gt;Provenance record&lt;/b&gt;&lt;br&gt;qa_id · prompt · model role · adapter path · generated answer" vertex="1">
+          <mxGeometry height="67" width="480" x="70" y="890" as="geometry" />
+        </mxCell>
+        <mxCell id="evalbadge" parent="1" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="06" vertex="1">
+          <mxGeometry height="28" width="28" x="35" y="1005" as="geometry" />
+        </mxCell>
+        <mxCell id="eval" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=13;" value="&lt;b&gt;Condition evaluation&lt;/b&gt;&lt;br&gt;RAGAS preserves the Base ↔ QLoRA pairing" vertex="1">
+          <mxGeometry height="58" width="480" x="70" y="990" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="item" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="builder">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="builder" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="render">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="render" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="dispatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="1" source="dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1683A8;strokeWidth=1.5;" target="base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="1" source="dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;" target="ql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="1" source="pair" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="prov">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="1" source="prov" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="eval">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

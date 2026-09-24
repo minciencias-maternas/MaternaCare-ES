@@ -30,6 +30,7 @@ from typing import Any
 
 DEFAULT_METRICS = (
     "faithfulness",
+    "noise_sensitivity",
     "answer_relevancy",
     "answer_correctness",
     "semantic_similarity",
@@ -67,7 +68,18 @@ def parse_args() -> argparse.Namespace:
         default=None,
         help="Evalúa solo los primeros N ejemplos del input.",
     )
-    parser.add_argument("--timeout-seconds", type=int, default=180)
+    parser.add_argument(
+        "--timeout-seconds",
+        type=int,
+        default=600,
+        help="Timeout máximo por métrica y predicción de RAGAS (por defecto: 600 s).",
+    )
+    parser.add_argument(
+        "--concurrency",
+        type=int,
+        default=3,
+        help="Máximo de métricas RAGAS concurrentes por predicción (por defecto: 3).",
+    )
     parser.add_argument(
         "--llm-model",
         type=str,
@@ -204,6 +216,7 @@ def import_ragas_stack() -> dict[str, Any]:
             AnswerCorrectness,
             AnswerRelevancy,
             Faithfulness,
+            NoiseSensitivity,
             SemanticSimilarity,
         )
     except ImportError as exc:
@@ -218,6 +231,7 @@ def import_ragas_stack() -> dict[str, Any]:
         "AnswerCorrectness": AnswerCorrectness,
         "AnswerRelevancy": AnswerRelevancy,
         "Faithfulness": Faithfulness,
+        "NoiseSensitivity": NoiseSensitivity,
         "SemanticSimilarity": SemanticSimilarity,
     }
 
@@ -239,6 +253,8 @@ def build_metrics(
     metrics: dict[str, Any] = {}
     if "faithfulness" in metric_names:
         metrics["faithfulness"] = stack["Faithfulness"](llm=llm)
+    if "noise_sensitivity" in metric_names:
+        metrics["noise_sensitivity"] = stack["NoiseSensitivity"](llm=llm, mode="irrelevant")
     if "answer_relevancy" in metric_names:
         metrics["answer_relevancy"] = stack["AnswerRelevancy"](
             llm=llm, embeddings=embeddings
@@ -259,6 +275,7 @@ async def score_prediction(
     qa_id: str,
     metrics: dict[str, Any],
     timeout_seconds: int,
+    concurrency: int = 3,
 ) -> dict[str, Any]:
     question = get_field(row, "question", "pregunta")
     generated = get_field(row, "generated_answer", "generated")
@@ -286,6 +303,13 @@ async def score_prediction(
             response=generated,
             retrieved_contexts=[context] if context else [],
         )
+    if "noise_sensitivity" in metrics:
+        metric_calls["noise_sensitivity"] = metrics["noise_sensitivity"].ascore(
+            user_input=question,
+            response=generated,
+            reference=reference,
+            retrieved_contexts=[context] if context else [],
+        )
     if "answer_relevancy" in metrics:
         metric_calls["answer_relevancy"] = metrics["answer_relevancy"].ascore(
             user_input=question,
@@ -303,16 +327,30 @@ async def score_prediction(
             reference=reference,
         )
 
-    for name, metric_call in metric_calls.items():
+    semaphore = asyncio.Semaphore(concurrency)
+
+    async def score_metric(name: str, metric_call: Any) -> tuple[str, Any, str | None]:
         try:
-            metric_result = await asyncio.wait_for(metric_call, timeout=timeout_seconds)
-            scored[name] = extract_metric_value(metric_result)
+            async with semaphore:
+                metric_result = await asyncio.wait_for(metric_call, timeout=timeout_seconds)
+            value = extract_metric_value(metric_result)
             reason = extract_metric_reason(metric_result)
+            return name, (value, reason), None
+        except Exception as exc:
+            return name, None, f"{name}: {type(exc).__name__} {exc!r}"
+
+    results = await asyncio.gather(
+        *(score_metric(name, metric_call) for name, metric_call in metric_calls.items())
+    )
+    for name, result, error in results:
+        if result is None:
+            scored[name] = None
+        else:
+            scored[name], reason = result
             if reason:
                 scored[f"{name}_reason"] = reason
-        except Exception as exc:
-            scored[name] = None
-            errors.append(f"{name}: {type(exc).__name__} {exc!r}")
+        if error:
+            errors.append(error)
 
     if errors:
         scored["error"] = " | ".join(errors)
@@ -328,6 +366,7 @@ async def evaluate_predictions(
     embedding_model: str,
     max_completion_tokens: int,
     timeout_seconds: int,
+    concurrency: int,
 ) -> list[dict[str, Any]]:
     stack = import_ragas_stack()
     metrics = build_metrics(
@@ -349,7 +388,7 @@ async def evaluate_predictions(
                 continue
 
             print(f"[EVAL] {idx}/{total} qa_id={qa_id}", flush=True)
-            scored = await score_prediction(row, qa_id, metrics, timeout_seconds)
+            scored = await score_prediction(row, qa_id, metrics, timeout_seconds, concurrency)
             f.write(json.dumps(scored, ensure_ascii=False) + "\n")
             f.flush()
             done.add(qa_id)
@@ -466,6 +505,7 @@ async def main_async(args: argparse.Namespace) -> None:
         embedding_model=args.embedding_model,
         max_completion_tokens=args.max_completion_tokens,
         timeout_seconds=args.timeout_seconds,
+        concurrency=args.concurrency,
     )
     write_summary(output, args.input, output_jsonl, rows, results, args)
 

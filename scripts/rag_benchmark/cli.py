@@ -48,7 +48,18 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--evaluator-model", default="gpt-5.4-mini")
     parser.add_argument("--embedding-model", default="text-embedding-3-large")
     parser.add_argument("--evaluator-max-completion-tokens", type=int, default=2048)
-    parser.add_argument("--evaluator-timeout-seconds", type=int, default=180)
+    parser.add_argument(
+        "--evaluator-timeout-seconds",
+        type=int,
+        default=600,
+        help="Timeout máximo por métrica y muestra de RAGAS (por defecto: 600 s).",
+    )
+    parser.add_argument(
+        "--evaluator-concurrency",
+        type=int,
+        default=3,
+        help="Máximo de métricas RAGAS concurrentes por muestra (por defecto: 3).",
+    )
     parser.add_argument("--adapter-path", type=Path, default=None)
     parser.add_argument("--max-new-tokens", type=int, default=512)
     parser.add_argument("--hyde-max-new-tokens", type=int, default=256)
@@ -118,6 +129,7 @@ def config_from_args(args: argparse.Namespace) -> BenchmarkConfig:
         embedding_model=args.embedding_model,
         evaluator_max_completion_tokens=args.evaluator_max_completion_tokens,
         evaluator_timeout_seconds=args.evaluator_timeout_seconds,
+        evaluator_concurrency=args.evaluator_concurrency,
         generation_settings=generation,
         hyde_generation_settings=hyde_generation,
         adapter_path=args.adapter_path,

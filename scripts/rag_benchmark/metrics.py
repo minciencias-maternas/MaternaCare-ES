@@ -11,6 +11,7 @@ METRIC_NAMES = (
     "context_precision",
     "context_recall",
     "faithfulness",
+    "noise_sensitivity",
     "answer_relevancy",
     "answer_correctness",
     "semantic_similarity",
@@ -20,6 +21,7 @@ METRIC_FIELDS: dict[str, tuple[str, ...]] = {
     "context_precision": ("user_input", "retrieved_contexts", "reference"),
     "context_recall": ("user_input", "retrieved_contexts", "reference"),
     "faithfulness": ("user_input", "response", "retrieved_contexts"),
+    "noise_sensitivity": ("user_input", "response", "reference", "retrieved_contexts"),
     "answer_relevancy": ("user_input", "response"),
     "answer_correctness": ("user_input", "response", "reference"),
     "semantic_similarity": ("response", "reference"),
@@ -38,6 +40,7 @@ def import_ragas_stack() -> dict[str, Any]:
             ContextPrecision,
             ContextRecall,
             Faithfulness,
+            NoiseSensitivity,
             SemanticSimilarity,
         )
     except ImportError as exc:
@@ -50,6 +53,7 @@ def import_ragas_stack() -> dict[str, Any]:
         "ContextPrecision": ContextPrecision,
         "ContextRecall": ContextRecall,
         "Faithfulness": Faithfulness,
+        "NoiseSensitivity": NoiseSensitivity,
         "AnswerRelevancy": AnswerRelevancy,
         "AnswerCorrectness": AnswerCorrectness,
         "SemanticSimilarity": SemanticSimilarity,
@@ -87,6 +91,7 @@ def build_metrics(
         "context_precision": stack["ContextPrecision"](llm=llm),
         "context_recall": stack["ContextRecall"](llm=llm),
         "faithfulness": stack["Faithfulness"](llm=llm),
+        "noise_sensitivity": stack["NoiseSensitivity"](llm=llm, mode="irrelevant"),
         "answer_relevancy": stack["AnswerRelevancy"](llm=llm, embeddings=embeddings),
         "answer_correctness": stack["AnswerCorrectness"](llm=llm, embeddings=embeddings),
         "semantic_similarity": stack["SemanticSimilarity"](embeddings=embeddings),
@@ -95,12 +100,21 @@ def build_metrics(
 
 
 class RagasEvaluator:
-    def __init__(self, metrics: dict[str, Any], sample_class: Any, timeout_seconds: int = 180) -> None:
+    def __init__(
+        self,
+        metrics: dict[str, Any],
+        sample_class: Any,
+        timeout_seconds: int = 600,
+        concurrency: int = 3,
+    ) -> None:
         if tuple(metrics) != METRIC_NAMES:
             raise ValueError(f"RAGAS evaluator requires exactly these metrics: {METRIC_NAMES}")
+        if concurrency < 1:
+            raise ValueError("RAGAS evaluator concurrency must be at least 1")
         self.metrics = metrics
         self.sample_class = sample_class
         self.timeout_seconds = timeout_seconds
+        self.concurrency = concurrency
 
     @classmethod
     def from_models(
@@ -109,13 +123,14 @@ class RagasEvaluator:
         embedding_model: str,
         max_completion_tokens: int,
         timeout_seconds: int,
+        concurrency: int = 3,
     ) -> "RagasEvaluator":
         metrics, sample_class = build_metrics(
             evaluator_model=evaluator_model,
             embedding_model=embedding_model,
             max_completion_tokens=max_completion_tokens,
         )
-        return cls(metrics, sample_class, timeout_seconds)
+        return cls(metrics, sample_class, timeout_seconds, concurrency)
 
     async def score(
         self,
@@ -144,23 +159,46 @@ class RagasEvaluator:
             }
 
         scored: dict[str, Any] = {}
-        errors: list[str] = []
+        active_metrics: list[tuple[str, Any, dict[str, Any]]] = []
         for name, metric in self.metrics.items():
-            if not include_context_metrics and name in ("context_precision", "context_recall", "faithfulness"):
+            if not include_context_metrics and name in (
+                "context_precision",
+                "context_recall",
+                "faithfulness",
+                "noise_sensitivity",
+            ):
                 scored[name] = None
                 continue
             kwargs = {field: fields[field] for field in METRIC_FIELDS[name]}
+
+            active_metrics.append((name, metric, kwargs))
+
+        semaphore = asyncio.Semaphore(self.concurrency)
+
+        async def score_metric(
+            name: str, metric: Any, kwargs: dict[str, Any]
+        ) -> tuple[str, float | None, str | None]:
             try:
-                result = await asyncio.wait_for(
-                    metric.ascore(**kwargs), timeout=self.timeout_seconds
-                )
+                async with semaphore:
+                    result = await asyncio.wait_for(
+                        metric.ascore(**kwargs), timeout=self.timeout_seconds
+                    )
                 value = getattr(result, "value", result)
-                scored[name] = None if value is None else float(value)
-                if scored[name] is not None and not math.isfinite(scored[name]):
-                    raise ValueError(f"non-finite metric value: {scored[name]}")
+                value = None if value is None else float(value)
+                if value is not None and not math.isfinite(value):
+                    raise ValueError(f"non-finite metric value: {value}")
+                return name, value, None
             except Exception as exc:
-                scored[name] = None
-                errors.append(f"{name}: {type(exc).__name__}: {exc}")
+                return name, None, f"{name}: {type(exc).__name__}: {exc}"
+
+        results = await asyncio.gather(
+            *(score_metric(name, metric, kwargs) for name, metric, kwargs in active_metrics)
+        )
+        errors: list[str] = []
+        for name, value, error in results:
+            scored[name] = value
+            if error:
+                errors.append(error)
         if errors:
             scored["metric_errors"] = errors
         return scored

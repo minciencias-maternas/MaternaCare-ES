@@ -1,10 +1,6 @@
 # PyTorch wheels for NVIDIA GPUs (CUDA 12.4) on Windows/Linux.
-# The torch index must be set and torch installed BEFORE pulling the rest of
-# the dependencies, so pip does not resolve a transitive torch dependency
-# against the default PyPI CPU-only wheel.
---index-url https://download.pytorch.org/whl/cu124
+# Use the PyTorch index only as an additional source for the exact CUDA wheel.
+--extra-index-url https://download.pytorch.org/whl/cu124
 torch==2.5.0+cu124
-torchvision==0.20.0+cu124
-torchaudio==2.5.0+cu124
 
 -r requirements.txt

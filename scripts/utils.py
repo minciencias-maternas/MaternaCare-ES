@@ -5,6 +5,7 @@ import math
 import random
 import re
 import unicodedata
+import warnings
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Sequence, Tuple
@@ -647,12 +648,43 @@ def tail_words(text: str, n: int) -> str:
     return " ".join(words[-n:])
 
 
+def tail_tokens(text: str, n: int, tokenizer) -> str:
+    """Return the last n real tokenizer tokens from text as a string.
+
+    Tokenizes the input, keeps the last n token ids, and decodes them back
+    to text. Handles empty input and non-positive n by returning an empty
+    string.
+
+    Args:
+        text: Source text to tokenize.
+        n: Number of tokens to keep from the end.
+        tokenizer: A tokenizer with ``encode`` and ``decode`` methods.
+
+    Returns:
+        Decoded string of the last n tokens, or an empty string if no content.
+    """
+    if not text or n <= 0 or tokenizer is None:
+        return ""
+    token_ids = tokenizer.encode(text, add_special_tokens=False)
+    if not token_ids:
+        return ""
+    return tokenizer.decode(token_ids[-n:], skip_special_tokens=True)
+
+
 def chunk_records(
     rows: Sequence[Dict[str, Any]],
     min_tokens: int = 500,
     max_tokens: int = 1200,
-    overlap_tokens: int = 80,
+    overlap_tokens: int = 100,
+    tokenizer: Any = None,
 ) -> List[Dict[str, Any]]:
+    if overlap_tokens > 0 and tokenizer is None:
+        warnings.warn(
+            "No tokenizer provided; overlap_tokens is approximate and measured in "
+            "whitespace-separated words, not real tokenizer tokens.",
+            UserWarning,
+            stacklevel=2,
+        )
     grouped: Dict[Tuple[str, str], List[Dict[str, Any]]] = defaultdict(list)
     for row in rows:
         if row.get("is_kept") is False:
@@ -691,7 +723,10 @@ def chunk_records(
                     }
                 )
                 if overlap_tokens > 0 and tokens > max_tokens:
-                    overlap = tail_words(text, overlap_tokens)
+                    if tokenizer is not None:
+                        overlap = tail_tokens(text, overlap_tokens, tokenizer)
+                    else:
+                        overlap = tail_words(text, overlap_tokens)
                     buffer_parts = [overlap] if overlap else []
                     buffer_pages = buffer_pages[-1:] if buffer_pages else []
                 else:

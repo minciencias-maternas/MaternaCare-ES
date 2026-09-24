@@ -1,0 +1,139 @@
+<mxfile host="Electron">
+  <diagram name="Benchmark workflow" id="benchmark-workflow">
+    <mxGraphModel dx="975" dy="588" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="620" pageHeight="1040" math="1" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="s1" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="180" width="540" x="40" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="s1" style="ellipse;html=1;fillColor=#1683A8;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="01" vertex="1">
+          <mxGeometry height="32" width="32" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="h1" parent="s1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Data and evidence&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Held-out questions remain paired with their sources&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="430" x="65" y="6" as="geometry" />
+        </mxCell>
+        <mxCell id="qa" parent="s1" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=12;" value="&lt;b&gt;MaternaQA-es&lt;/b&gt;&lt;br&gt;5,727 QA pairs" vertex="1">
+          <mxGeometry height="62" width="165" x="52" y="88" as="geometry" />
+        </mxCell>
+        <mxCell id="corpus" parent="s1" style="shape=cylinder3;whiteSpace=wrap;html=1;boundedLbl=1;backgroundOutline=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=12;" value="&lt;b&gt;Evidence corpus&lt;/b&gt;&lt;br&gt;2,268 chunks" vertex="1">
+          <mxGeometry height="72" width="165" x="340" y="83" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="s1" source="qa" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#5B6B79;fontSize=9;fontColor=#657786;" target="corpus" value="paired by qa_id">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s2" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="220" width="540" x="40" y="310" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="s2" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="02" vertex="1">
+          <mxGeometry height="32" width="32" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="h2" parent="s2" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Factorial experiment&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Each item traverses the same controlled grid&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="430" x="65" y="6" as="geometry" />
+        </mxCell>
+        <mxCell id="matrix" parent="s2" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#8356A7;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="92" width="170" x="55" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="m11" parent="s2" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#CAD3DC;fontSize=9;" value="G4 B" vertex="1">
+          <mxGeometry height="46" width="85" x="55" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="m12" parent="s2" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#CAD3DC;fontSize=9;" value="G4 Q" vertex="1">
+          <mxGeometry height="46" width="85" x="140" y="85" as="geometry" />
+        </mxCell>
+        <mxCell id="m21" parent="s2" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#CAD3DC;fontSize=9;" value="MG B" vertex="1">
+          <mxGeometry height="46" width="85" x="55" y="131" as="geometry" />
+        </mxCell>
+        <mxCell id="m22" parent="s2" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#CAD3DC;fontSize=9;" value="MG Q" vertex="1">
+          <mxGeometry height="46" width="85" x="140" y="131" as="geometry" />
+        </mxCell>
+        <mxCell id="times" parent="s2" style="text;html=1;strokeColor=none;fillColor=none;fontSize=24;fontColor=#8356A7;" value="×" vertex="1">
+          <mxGeometry height="35" width="30" x="245" y="112" as="geometry" />
+        </mxCell>
+        <mxCell id="modes" parent="s2" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=11;" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;&lt;b&gt;3 retrieval modes&lt;/b&gt;&lt;br&gt;none · hybrid · HyDE&lt;/font&gt;" vertex="1">
+          <mxGeometry height="58" width="190" x="285" y="102" as="geometry" />
+        </mxCell>
+        <mxCell id="eq" parent="s2" style="text;html=1;strokeColor=none;fillColor=none;fontSize=12;fontColor=#14324B;align=center;" value="$$2\times2\times3=12\ \text{conditions}$$" vertex="1">
+          <mxGeometry height="30" width="240" x="150" y="180" as="geometry" />
+        </mxCell>
+        <mxCell id="nVEoA5l2mefFkX7LZKQ8-1" edge="1" parent="s2" source="eq" style="edgeStyle=orthogonalEdgeStyle;rounded=0;orthogonalLoop=1;jettySize=auto;html=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;" target="eq">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s3" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="185" width="540" x="40" y="555" as="geometry" />
+        </mxCell>
+        <mxCell id="b3" parent="s3" style="ellipse;html=1;fillColor=#D87922;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="32" width="32" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="h3" parent="s3" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Controlled generation&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Identical prompts and deterministic decoding&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="430" x="65" y="6" as="geometry" />
+        </mxCell>
+        <mxCell id="prompt" parent="s3" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=12;" value="&lt;b&gt;Prompt&lt;/b&gt;&lt;br&gt;context + question" vertex="1">
+          <mxGeometry height="56" width="112" x="35" y="91" as="geometry" />
+        </mxCell>
+        <mxCell id="dispatch" parent="s3" style="ellipse;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;" value="" vertex="1">
+          <mxGeometry height="28" width="28" x="177" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="base" parent="s3" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=11;" value="&lt;b&gt;W₀ · Base&lt;/b&gt;" vertex="1">
+          <mxGeometry height="42" width="112" x="238" y="76" as="geometry" />
+        </mxCell>
+        <mxCell id="ql" parent="s3" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=11;" value="&lt;b&gt;W₀ + BA · QLoRA&lt;/b&gt;" vertex="1">
+          <mxGeometry height="42" width="112" x="238" y="126" as="geometry" />
+        </mxCell>
+        <mxCell id="answers" parent="s3" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=12;" value="&lt;b&gt;Paired answers&lt;/b&gt;&lt;br&gt;provenance attached" vertex="1">
+          <mxGeometry height="56" width="120" x="395" y="91" as="geometry" />
+        </mxCell>
+        <mxCell id="e30" edge="1" parent="s3" source="prompt" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="dispatch">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="s3" source="dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1683A8;strokeWidth=1.5;" target="base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="s3" source="dispatch" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;" target="ql">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="s3" source="base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1683A8;strokeWidth=1.5;" target="answers">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e34" edge="1" parent="s3" source="ql" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;" target="answers">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="s4" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="220" width="540" x="40" y="765" as="geometry" />
+        </mxCell>
+        <mxCell id="b4" parent="s4" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="04" vertex="1">
+          <mxGeometry height="32" width="32" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="h4" parent="s4" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Evaluation and aggregation&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Four RAGAS metrics over 328 held-out items&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="430" x="65" y="6" as="geometry" />
+        </mxCell>
+        <mxCell id="vec" parent="s4" style="rounded=0;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=12;fontStyle=1;fontFamily=monospace;" value="[ F  AR  AC  SS ]" vertex="1">
+          <mxGeometry height="54" width="145" x="30" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="mean" parent="s4" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=11;" value="$$\bar{\mathbf m}_c=\frac{1}{328}\sum_{i=1}^{328}\mathbf m_{i,c}$$" vertex="1">
+          <mxGeometry height="62" width="190" x="200" y="88" as="geometry" />
+        </mxCell>
+        <mxCell id="report" parent="s4" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=11;" value="&lt;b&gt;Condition report&lt;/b&gt;&lt;br&gt;means + errors" vertex="1">
+          <mxGeometry height="58" width="100" x="420" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="e41" edge="1" parent="s4" source="vec" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2E9B65;strokeWidth=1.5;" target="mean">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e42" edge="1" parent="s4" source="mean" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#2E9B65;strokeWidth=1.5;" target="report">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="foot" parent="1" style="text;html=1;strokeColor=none;fillColor=none;fontSize=11;fontStyle=2;fontColor=#657786;align=center;" value="Each condition preserves qa_id, rendered prompt, model role, adapter and generated answer." vertex="1">
+          <mxGeometry height="20" width="540" x="40" y="1000" as="geometry" />
+        </mxCell>
+        <mxCell id="f12" edge="1" parent="1" source="s1" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="s2">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f23" edge="1" parent="1" source="s2" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="f34" edge="1" parent="1" source="s3" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="s4">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

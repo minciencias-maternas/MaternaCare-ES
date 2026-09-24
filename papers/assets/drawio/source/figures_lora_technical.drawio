@@ -1,0 +1,124 @@
+<mxfile host="Electron">
+  <diagram name="LoRA QLoRA mechanism" id="lora-technical">
+    <mxGraphModel dx="1010" dy="609" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="620" pageHeight="1160" math="1" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="hero" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;strokeWidth=1.5;fontSize=14;" value="$$h=\operatorname{dequant}(W_0^{\mathrm{NF4}})x+\frac{\alpha}{r}BAx$$" vertex="1">
+          <mxGeometry height="72" width="480" x="70" y="100" as="geometry" />
+        </mxCell>
+        <mxCell id="x" parent="1" style="rounded=0;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontFamily=monospace;fontSize=11;" value="&lt;font style=&quot;font-size: 12px;&quot;&gt;x = [x₁ x₂ … xₖ]ᵀ&lt;/font&gt;" vertex="1">
+          <mxGeometry height="46" width="240" x="190" y="205" as="geometry" />
+        </mxCell>
+        <mxCell id="split" parent="1" style="rhombus;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=11;" value="parallel paths" vertex="1">
+          <mxGeometry height="68" width="130" x="245" y="280" as="geometry" />
+        </mxCell>
+        <mxCell id="forward" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="300" width="540" x="40" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="fbadge" parent="forward" style="ellipse;html=1;fillColor=#1683A8;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="01" vertex="1">
+          <mxGeometry height="28" width="28" x="10" y="8.5" as="geometry" />
+        </mxCell>
+        <mxCell id="fh" parent="forward" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontColor=#657786;" value="&lt;b&gt;FORWARD&amp;nbsp;&lt;/b&gt;&lt;div&gt;&lt;b&gt;PASS&lt;/b&gt;&lt;/div&gt;" vertex="1">
+          <mxGeometry height="35" width="70" x="50" y="5" as="geometry" />
+        </mxCell>
+        <mxCell id="base" parent="forward" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="185" width="230" x="25" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="bh" parent="base" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontColor=#14324B;" value="&lt;b&gt;Frozen base path&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;storage ≠ compute dtype&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="190" x="20" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="wm" parent="base" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#1683A8;fontSize=12;fontStyle=1;" value="W₀&lt;br&gt;d × k" vertex="1">
+          <mxGeometry height="72" width="70" x="25" y="72" as="geometry" />
+        </mxCell>
+        <mxCell id="dq" parent="base" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=12;" value="&lt;b&gt;doubleDequant&lt;/b&gt;&lt;br&gt;NF4 → BF16" vertex="1">
+          <mxGeometry height="58" width="95" x="115" y="80" as="geometry" />
+        </mxCell>
+        <mxCell id="adapter" parent="forward" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFF1DF;strokeColor=#D87922;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="185" width="230" x="285" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="ah" parent="adapter" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontColor=#14324B;" value="&lt;b&gt;Trainable LoRA path&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;r ≪ min(d,k)&lt;/font&gt;" vertex="1">
+          <mxGeometry height="40" width="190" x="20" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="amat" parent="adapter" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#D87922;fontSize=12;fontStyle=1;" value="A&lt;br&gt;r × k" vertex="1">
+          <mxGeometry height="42" width="95" x="28" y="82" as="geometry" />
+        </mxCell>
+        <mxCell id="bmat" parent="adapter" style="rounded=0;html=1;fillColor=#FFFFFF;strokeColor=#D87922;fontSize=12;fontStyle=1;" value="B&lt;br&gt;d × r" vertex="1">
+          <mxGeometry height="74" width="42" x="145" y="66" as="geometry" />
+        </mxCell>
+        <mxCell id="rank" parent="adapter" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;" value="$$\Delta W=\frac{\alpha}{r}BA,\quad \operatorname{rank}(BA)\le r$$" vertex="1">
+          <mxGeometry height="30" width="195" x="28" y="140" as="geometry" />
+        </mxCell>
+        <mxCell id="combine" parent="forward" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=11;" value="$$h=h_0+\Delta h$$" vertex="1">
+          <mxGeometry height="38" width="190" x="175" y="250" as="geometry" />
+        </mxCell>
+        <mxCell id="e4" edge="1" parent="forward" source="base" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1683A8;strokeWidth=1.5;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" target="combine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e5" edge="1" parent="forward" source="adapter" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" target="combine">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="back" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="205" width="540" x="40" y="720" as="geometry" />
+        </mxCell>
+        <mxCell id="bbadge" parent="back" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="02" vertex="1">
+          <mxGeometry height="28" width="28" x="20" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="backh" parent="back" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontColor=#657786;" value="&lt;b&gt;BACKPROPAGATION&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="260" x="55" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="loss" parent="back" style="ellipse;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=18;fontStyle=2;" value="ℒ" vertex="1">
+          <mxGeometry height="60" width="60" x="240" y="55" as="geometry" />
+        </mxCell>
+        <mxCell id="frozen" parent="back" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=11;" value="$$\nabla_{W_0}\mathcal L=0$$&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;frozen&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="55" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="update" parent="back" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=11;" value="$$\nabla_A\mathcal L,\ \nabla_B\mathcal L$$&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;optimizer update&lt;/font&gt;" vertex="1">
+          <mxGeometry height="60" width="170" x="315" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="e6" edge="1" parent="back" source="loss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;dashed=1;strokeColor=#1683A8;strokeWidth=1.5;" target="frozen">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e7" edge="1" parent="back" source="loss" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;" target="update">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="rBozr7isaZ53PUCFaqTe-1" parent="1" style="ellipse;html=1;fillColor=#7C8B98;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="972" as="geometry" />
+        </mxCell>
+        <mxCell id="rBozr7isaZ53PUCFaqTe-2" parent="1" style="ellipse;html=1;fillColor=#7C8B98;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="972" as="geometry" />
+        </mxCell>
+        <mxCell id="recipe" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;align=center;spacingLeft=15;fontSize=10;" value="&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;&lt;div&gt;&lt;br&gt;&lt;/div&gt;NF4 + double quantization · BF16 compute · all-linear targets · 8-bit AdamW&lt;br&gt;&lt;b&gt;r = 16 · α = 16 · dropout = 0.05&lt;/b&gt;" vertex="1">
+          <mxGeometry height="76" width="540" x="40" y="960" as="geometry" />
+        </mxCell>
+        <mxCell id="rBozr7isaZ53PUCFaqTe-3" parent="1" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="04" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="1072" as="geometry" />
+        </mxCell>
+        <mxCell id="rBozr7isaZ53PUCFaqTe-4" parent="1" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="04" vertex="1">
+          <mxGeometry height="28" width="28" x="55" y="1072" as="geometry" />
+        </mxCell>
+        <mxCell id="merge" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=10;" value="&lt;b&gt;Optional deployment merge&lt;/b&gt;  $$W_{\mathrm{merge}}=W_0+\frac{\alpha}{r}BA$$&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Not the QLoRA training forward.&lt;/font&gt;" vertex="1">
+          <mxGeometry height="76" width="540" x="40" y="1060" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="x" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="split">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="split" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#1683A8;strokeWidth=1.5;" target="base">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e3" edge="1" parent="1" source="split" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#D87922;strokeWidth=1.5;" target="adapter">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="S7sc2to2iv-mfiwkGuHw-6" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontColor=#657786;" value="&lt;b&gt;PROJECT RECIPE&lt;/b&gt;" vertex="1">
+          <mxGeometry height="24" width="260" x="90" y="966" as="geometry" />
+        </mxCell>
+        <mxCell id="recipebadge" parent="1" style="ellipse;html=1;fillColor=#7C8B98;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="28" width="28" x="50" y="966" as="geometry" />
+        </mxCell>
+        <mxCell id="mergebadge" parent="1" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="04" vertex="1">
+          <mxGeometry height="28" width="28" x="50" y="1084" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

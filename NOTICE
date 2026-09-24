@@ -1,0 +1,46 @@
+MaternaCare-ES Third-Party Materials
+
+This file identifies important third-party materials used by the project. The
+repository LICENSE applies only to original MaternaCare-ES source code and
+documentation unless a component states otherwise.
+
+1. Base models and model derivatives
+
+Gemma 4 E2B IT
+  Model: google/gemma-4-E2B-it
+  License: Apache License 2.0
+  Terms: https://ai.google.dev/gemma/docs/gemma_4_license
+
+MedGemma 1.5 4B IT
+  Model: google/medgemma-1.5-4b-it
+  Terms: Health AI Developer Foundations Terms of Use
+  Terms: https://developers.google.com/health-ai-developer-foundations/terms
+  Prohibited use policy:
+  https://developers.google.com/health-ai-developer-foundations/prohibited-use-policy
+
+MedGemma derivatives must be distributed subject to the Health AI Developer
+Foundations Terms of Use. In particular, recipients must receive a copy of the
+terms, the applicable use restrictions must remain enforceable, and any
+distribution of HAI-DEF or Model Derivatives must include this notice:
+
+HAI-DEF is provided under and subject to the Health AI Developer Foundations Terms of Use found at https://developers.google.com/health-ai-developer-foundations/terms
+
+2. Dataset
+
+MaternaQA-es is distributed by its canonical repository under Apache 2.0,
+subject to the terms and constraints of the original source materials:
+  https://huggingface.co/datasets/iue-edu/MaternaQA-es
+
+3. Software dependencies
+
+Dependencies listed in requirements*.txt are third-party software and remain
+under their respective licenses. Their licenses are not changed by this
+repository license. Consult each package distribution for its complete notice
+and license text.
+
+4. Responsible use
+
+The models, adapters, and dataset are research artifacts. They must not be
+used for diagnosis, treatment, triage, patient management, or other clinical
+decisions without independent clinical validation, safety testing, and
+professional oversight.

@@ -4,7 +4,8 @@
 Typical usage:
     python scripts/evaluate_qa_with_ragas.py --input datasets/obstetrics/qa/final/train/raw.jsonl
 
-The script computes Faithfulness and Answer Relevancy in two internal passes
+The script computes Faithfulness, Noise Sensitivity, and Answer Relevancy in
+three internal passes
 and writes a single final report. This split avoids hangs observed in this
 environment during combined execution.
 """
@@ -183,7 +184,7 @@ def resolve_chunk_text(row: Dict[str, Any], chunk_lookup: Dict[str, str]) -> str
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Calcula Faithfulness y Answer Relevancy con Ragas real."
+        description="Calcula Faithfulness, Noise Sensitivity y Answer Relevancy con Ragas real."
     )
     parser.add_argument("--input", type=Path, required=True, help="Archivo raw_*.jsonl")
     parser.add_argument(
@@ -213,8 +214,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--timeout-seconds",
         type=int,
-        default=180,
-        help="Timeout máximo por métrica/par.",
+        default=600,
+        help="Timeout máximo por métrica/par (por defecto: 600 s).",
     )
     parser.add_argument(
         "--llm-model",
@@ -367,7 +368,7 @@ async def evaluate_rows(
         from openai import AsyncOpenAI
         from ragas.embeddings.base import embedding_factory
         from ragas.llms import llm_factory
-        from ragas.metrics.collections import AnswerRelevancy, Faithfulness
+        from ragas.metrics.collections import AnswerRelevancy, Faithfulness, NoiseSensitivity
     except ImportError as exc:
         raise SystemExit(
             "Faltan dependencias para Ragas. Ejecuta: pip install -r requirements.txt"
@@ -386,6 +387,7 @@ async def evaluate_rows(
             llm.model_args.pop("top_p", None)
     embeddings = embedding_factory("openai", model=embedding_model, client=client)
     faithfulness = Faithfulness(llm=llm)
+    noise_sensitivity = NoiseSensitivity(llm=llm, mode="irrelevant")
     relevancy = AnswerRelevancy(llm=llm, embeddings=embeddings)
 
     results: List[Dict[str, Any]] = []
@@ -395,8 +397,10 @@ async def evaluate_rows(
             source_context = resolve_chunk_text(row, chunk_lookup or {})
             contexts = [source_context]
             faith_value = None
+            noise_value = None
             rel_value = None
             faith_reason = ""
+            noise_reason = ""
             rel_reason = ""
             if metric == "faithfulness":
                 print(f"[RAGAS] par {i}/{total} -> faithfulness...", flush=True)
@@ -412,6 +416,21 @@ async def evaluate_rows(
                 faith_reason = extract_metric_reason(faith)
                 if faith_value is None:
                     raise RuntimeError(f"Ragas devolvió faithfulness vacío. reason={faith_reason}")
+            elif metric == "noise_sensitivity":
+                print(f"[RAGAS] par {i}/{total} -> noise_sensitivity...", flush=True)
+                noise = await asyncio.wait_for(
+                    noise_sensitivity.ascore(
+                        user_input=row["pregunta"],
+                        response=row["respuesta"],
+                        reference=row.get("respuesta", ""),
+                        retrieved_contexts=contexts,
+                    ),
+                    timeout=timeout_seconds,
+                )
+                noise_value = extract_metric_value(noise)
+                noise_reason = extract_metric_reason(noise)
+                if noise_value is None:
+                    raise RuntimeError(f"Ragas devolvió noise_sensitivity vacío. reason={noise_reason}")
             elif metric == "answer_relevancy":
                 print(f"[RAGAS] par {i}/{total} -> answer_relevancy...", flush=True)
                 rel = await asyncio.wait_for(
@@ -432,8 +451,10 @@ async def evaluate_rows(
                     "qa_id": row["qa_id"],
                     "chunk_id": row["chunk_id"],
                     "ragas_faithfulness": float(faith_value) if faith_value is not None else None,
+                    "ragas_noise_sensitivity": float(noise_value) if noise_value is not None else None,
                     "ragas_answer_relevancy": float(rel_value) if rel_value is not None else None,
                     "ragas_faithfulness_reason": faith_reason,
+                    "ragas_noise_sensitivity_reason": noise_reason,
                     "ragas_answer_relevancy_reason": rel_reason,
                 }
             )
@@ -442,6 +463,7 @@ async def evaluate_rows(
                 "qa_id": row.get("qa_id"),
                 "chunk_id": row.get("chunk_id"),
                 "ragas_faithfulness": None,
+                "ragas_noise_sensitivity": None,
                 "ragas_answer_relevancy": None,
                 "error_type": type(exc).__name__,
                 "error": repr(exc),
@@ -453,6 +475,7 @@ async def evaluate_rows(
 
 def summarize(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     faith = [r["ragas_faithfulness"] for r in results if r.get("ragas_faithfulness") is not None]
+    noise = [r["ragas_noise_sensitivity"] for r in results if r.get("ragas_noise_sensitivity") is not None]
     rel = [r["ragas_answer_relevancy"] for r in results if r.get("ragas_answer_relevancy") is not None]
     custom_faith = [r["custom_faithfulness"] for r in results if r.get("custom_faithfulness") is not None]
     custom_rel = [r["custom_answer_relevancy"] for r in results if r.get("custom_answer_relevancy") is not None]
@@ -462,9 +485,11 @@ def summarize(results: List[Dict[str, Any]]) -> Dict[str, Any]:
     return {
         "pairs_evaluated": len(results),
         "pairs_scored_faithfulness": len(faith),
+        "pairs_scored_noise_sensitivity": len(noise),
         "pairs_scored_answer_relevancy": len(rel),
         "pairs_with_error": errors,
         "avg_ragas_faithfulness": round(statistics.mean(faith), 4) if faith else None,
+        "avg_ragas_noise_sensitivity": round(statistics.mean(noise), 4) if noise else None,
         "min_ragas_faithfulness": round(min(faith), 4) if faith else None,
         "max_ragas_faithfulness": round(max(faith), 4) if faith else None,
         "avg_ragas_answer_relevancy": round(statistics.mean(rel), 4) if rel else None,
@@ -705,10 +730,11 @@ async def main_async(args: argparse.Namespace) -> None:
     chunk_lookup = build_chunk_lookup(lm_paths) if lm_paths else {}
 
     # User-facing behavior: one command.
-    # Internal implementation: two metric passes with a final merge.
+    # Internal implementation: three metric passes with a final merge.
     if args.custom_only:
         print("[CUSTOM] Modo custom-only: omitiendo métricas Ragas.", flush=True)
         faith_rows = []
+        noise_rows = []
         rel_rows = []
     else:
         print("[RAGAS] Calculando faithfulness...", flush=True)
@@ -729,8 +755,18 @@ async def main_async(args: argparse.Namespace) -> None:
             metric="answer_relevancy",
             chunk_lookup=chunk_lookup or None,
         )
+        print("[RAGAS] Calculando noise_sensitivity...", flush=True)
+        noise_rows = await evaluate_rows(
+            rows,
+            args.llm_model,
+            args.embedding_model,
+            args.timeout_seconds,
+            metric="noise_sensitivity",
+            chunk_lookup=chunk_lookup or None,
+        )
 
     faith_by_id = {r.get("qa_id"): r for r in faith_rows}
+    noise_by_id = {r.get("qa_id"): r for r in noise_rows}
     rel_by_id = {r.get("qa_id"): r for r in rel_rows}
 
     custom_by_id: Dict[str, Dict[str, Any]] = {}
@@ -747,6 +783,7 @@ async def main_async(args: argparse.Namespace) -> None:
     for row in rows:
         qa_id = row.get("qa_id")
         f = faith_by_id.get(qa_id, {})
+        n = noise_by_id.get(qa_id, {})
         r = rel_by_id.get(qa_id, {})
         c = custom_by_id.get(qa_id, {})
         merged = {
@@ -758,8 +795,10 @@ async def main_async(args: argparse.Namespace) -> None:
             "pregunta": row.get("pregunta"),
             "respuesta": row.get("respuesta"),
             "ragas_faithfulness": f.get("ragas_faithfulness", row.get("ragas_faithfulness")),
+            "ragas_noise_sensitivity": n.get("ragas_noise_sensitivity", row.get("ragas_noise_sensitivity")),
             "ragas_answer_relevancy": r.get("ragas_answer_relevancy", row.get("ragas_answer_relevancy")),
             "ragas_faithfulness_reason": f.get("ragas_faithfulness_reason", row.get("ragas_faithfulness_reason", "")),
+            "ragas_noise_sensitivity_reason": n.get("ragas_noise_sensitivity_reason", row.get("ragas_noise_sensitivity_reason", "")),
             "ragas_answer_relevancy_reason": r.get("ragas_answer_relevancy_reason", row.get("ragas_answer_relevancy_reason", "")),
             "custom_faithfulness": c.get("custom_faithfulness"),
             "custom_answer_relevancy": c.get("custom_answer_relevancy"),
@@ -777,6 +816,8 @@ async def main_async(args: argparse.Namespace) -> None:
         errs = []
         if f.get("error"):
             errs.append(f"faithfulness: {f.get('error_type','Error')} {f.get('error')}")
+        if n.get("error"):
+            errs.append(f"noise_sensitivity: {n.get('error_type','Error')} {n.get('error')}")
         if r.get("error"):
             errs.append(f"answer_relevancy: {r.get('error_type','Error')} {r.get('error')}")
         if c.get("custom_error"):

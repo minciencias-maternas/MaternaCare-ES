@@ -22,7 +22,8 @@ from typing import Any
 
 from rag_benchmark.cli import build_parser, config_from_args
 from rag_benchmark.model_registry import MODEL_REGISTRY
-from rag_benchmark.runner import BenchmarkConfig, run_benchmark
+from rag_benchmark.retrieval import DenseRetriever
+from rag_benchmark.runner import BenchmarkConfig, load_and_validate_data, run_benchmark
 
 
 MODELS = tuple(MODEL_REGISTRY)
@@ -66,6 +67,7 @@ def _build_matrix_configs(base_config: BenchmarkConfig, limit: int | None) -> li
                 embedding_model=base_config.embedding_model,
                 evaluator_max_completion_tokens=base_config.evaluator_max_completion_tokens,
                 evaluator_timeout_seconds=base_config.evaluator_timeout_seconds,
+                evaluator_concurrency=base_config.evaluator_concurrency,
                 generation_settings=base_config.generation_settings,
                 hyde_generation_settings=base_config.hyde_generation_settings,
                 adapter_path=base_config.adapter_path,
@@ -84,6 +86,40 @@ def _read_summary(path: Path) -> dict[str, Any]:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
+def _preflight_retrieval(cfgs: list[tuple[str, str, BenchmarkConfig]]) -> None:
+    """Validate shared dense retrieval before any expensive experiment starts."""
+    retrieval_cfg = next(
+        (item for item in cfgs if item[1] in {"hybrid", "hyde"}),
+        None,
+    )
+    if retrieval_cfg is None:
+        return
+
+    _, strategy, config = retrieval_cfg
+    print(
+        "Preflight: loading retrieval index "
+        f"model={config.retrieval_embedding_model} device={config.retrieval_device}",
+        flush=True,
+    )
+    try:
+        _, corpus = load_and_validate_data(config)
+        DenseRetriever.load_or_build(
+            chunks=corpus,
+            index_dir=config.index_dir,
+            model_name=config.retrieval_embedding_model,
+            revision=config.retrieval_embedding_revision,
+            device=config.retrieval_device,
+            batch_size=config.retrieval_batch_size,
+        )
+    except Exception as exc:
+        raise RuntimeError(
+            "Retrieval preflight failed before any sample was processed "
+            f"for strategy {strategy}: {type(exc).__name__}: {exc}. "
+            "Repair the retrieval model cache or configuration and retry."
+        ) from exc
+    print("Preflight: retrieval index ready", flush=True)
+
+
 async def run_matrix(
     mode: str,
     base_args: list[str],
@@ -100,6 +136,8 @@ async def run_matrix(
         cfgs = [item for item in cfgs if item[0] == specific_model]
     if specific_strategy:
         cfgs = [item for item in cfgs if item[1] == specific_strategy]
+
+    _preflight_retrieval(cfgs)
 
     results: list[ExperimentResult] = []
     total = len(cfgs)
@@ -224,23 +262,32 @@ def build_matrix_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Only validate datasets and exit.",
     )
-
-    # Passthrough: forward remaining args to the single-experiment CLI.
     parser.add_argument(
-        "passthrough",
-        nargs=argparse.REMAINDER,
-        help="Additional arguments forwarded to each experiment (e.g. --no-load-in-4bit --retrieval-k 10)",
+        "--limit",
+        type=int,
+        default=None,
+        help="Limit the number of questions for the selected dataset.",
     )
+
     return parser
 
 
 def main() -> None:
     matrix_parser = build_matrix_parser()
-    matrix_args, _ = matrix_parser.parse_known_args()
-
+    matrix_args, passthrough = matrix_parser.parse_known_args()
     mode = matrix_args.mode or _interactive_mode()
 
-    passthrough = [arg for arg in matrix_args.passthrough if arg != "--"]
+    has_adapter_path = any(
+        arg == "--adapter-path" or arg.startswith("--adapter-path=")
+        for arg in sys.argv[1:]
+    )
+    if has_adapter_path and matrix_args.model is None and mode != "smoke":
+        matrix_parser.error(
+            "--adapter-path requires --model <model>; a single adapter override cannot be "
+            "applied to a multi-model matrix. Re-run with --model <model> to execute one model."
+        )
+
+    passthrough = [arg for arg in passthrough if arg != "--"]
 
     if mode == "smoke":
         dataset_mode = "sample10"
@@ -249,16 +296,24 @@ def main() -> None:
         specific_strategy = matrix_args.strategy or "no_rag"
     elif mode == "sample10":
         dataset_mode = "sample10"
-        limit = None
+        limit = matrix_args.limit
         specific_model = matrix_args.model
         specific_strategy = matrix_args.strategy
     else:  # full
         dataset_mode = "maternaqa_test"
-        limit = None
+        limit = matrix_args.limit
         specific_model = matrix_args.model
         specific_strategy = matrix_args.strategy
 
     base_args = ["--dataset-mode", dataset_mode, "--strategy", "no_rag", *passthrough]
+    if limit is not None:
+        base_args.extend(["--limit", str(limit)])
+
+    combos = 1
+    if not specific_model:
+        combos *= len(MODELS)
+    if not specific_strategy:
+        combos *= len(STRATEGIES)
 
     if matrix_args.validate_data_only:
         from rag_benchmark.cli import build_parser as bp, config_from_args as cfa
@@ -276,15 +331,9 @@ def main() -> None:
             "corpus_chunks": len(corpus),
             "reference_chunk_ids": len(ref),
             "limit": limit,
-            "matrix_size": 1 if specific_model and specific_strategy else MATRIX_SIZE,
+            "matrix_size": combos,
         }, ensure_ascii=False))
         return
-
-    combos = 1
-    if not specific_model:
-        combos *= len(MODELS)
-    if not specific_strategy:
-        combos *= len(STRATEGIES)
 
     print(f"\nMode: {mode}  |  Dataset: {dataset_mode}  |  Limit: {limit or 'all'}")
     print(f"Experiments: {combos}  |  Resume: enabled")

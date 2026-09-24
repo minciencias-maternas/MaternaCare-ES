@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 import asyncio
+import importlib
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import unittest
+from contextlib import redirect_stderr, redirect_stdout
 from pathlib import Path
 from typing import Any
 from unittest.mock import patch
@@ -20,7 +23,14 @@ from scripts.rag_benchmark.data import (
     validate_reference_chunks,
 )
 from scripts.rag_benchmark.cli import build_parser, config_from_args
-from scripts.rag_benchmark.generation import GenerationResult, GenerationSettings, OpenAIHydeGenerator
+from scripts.rag_benchmark.generation import (
+    ANSWER_WITH_CONTEXT_INSTRUCTION,
+    ANSWER_WITHOUT_CONTEXT_INSTRUCTION,
+    GenerationResult,
+    GenerationSettings,
+    OpenAIHydeGenerator,
+    build_answer_messages,
+)
 from scripts.rag_benchmark.hyde import prepare_hypothetical_documents
 from scripts.rag_benchmark.hyde import load_hyde_cache
 from scripts.rag_benchmark.metrics import METRIC_FIELDS, METRIC_NAMES, RagasEvaluator, build_metrics
@@ -72,6 +82,26 @@ class CanonicalDataTests(unittest.TestCase):
 
 
 class RetrievalTests(unittest.TestCase):
+    def test_answer_prompt_contracts_are_strategy_specific(self) -> None:
+        question = "¿Cuál es la recomendación?"
+        no_rag = build_answer_messages(question, [], require_retrieved_context=False)[0]["content"]
+        hybrid = build_answer_messages(question, ["evidencia hybrid"], require_retrieved_context=True)[0]["content"]
+        hyde = build_answer_messages(question, ["evidencia HyDE"], require_retrieved_context=True)[0]["content"]
+
+        self.assertIn(ANSWER_WITHOUT_CONTEXT_INSTRUCTION, no_rag)
+        self.assertNotIn("Contexto recuperado", no_rag)
+        self.assertIn(ANSWER_WITH_CONTEXT_INSTRUCTION, hybrid)
+        self.assertIn("Contexto recuperado:\n[1] evidencia hybrid", hybrid)
+        self.assertIn(ANSWER_WITH_CONTEXT_INSTRUCTION, hyde)
+        self.assertIn("Contexto recuperado:\n[1] evidencia HyDE", hyde)
+
+    def test_rag_prompt_retains_evidence_contract_when_retrieval_is_empty(self) -> None:
+        content = build_answer_messages("¿Pregunta?", [], require_retrieved_context=True)[0]["content"]
+
+        self.assertIn(ANSWER_WITH_CONTEXT_INSTRUCTION, content)
+        self.assertIn("Contexto recuperado:", content)
+        self.assertNotIn(ANSWER_WITHOUT_CONTEXT_INSTRUCTION, content)
+
     def test_dense_retriever_reports_missing_lancedb_dependency_lazily(self) -> None:
         with patch.dict(sys.modules, {"lancedb": None}):
             with self.assertRaisesRegex(RuntimeError, "Install lancedb"):
@@ -321,7 +351,7 @@ class TelemetryTests(unittest.TestCase):
 
 
 class RagasTests(unittest.TestCase):
-    def test_ragas_receives_single_turn_fields_and_exactly_six_metrics(self) -> None:
+    def test_ragas_receives_single_turn_fields_and_exactly_seven_metrics(self) -> None:
         calls: dict[str, dict[str, Any]] = {}
         construction: dict[str, Any] = {}
 
@@ -365,6 +395,7 @@ class RagasTests(unittest.TestCase):
             ("ContextPrecision", "context_precision"),
             ("ContextRecall", "context_recall"),
             ("Faithfulness", "faithfulness"),
+            ("NoiseSensitivity", "noise_sensitivity"),
             ("AnswerRelevancy", "answer_relevancy"),
             ("AnswerCorrectness", "answer_correctness"),
             ("SemanticSimilarity", "semantic_similarity"),
@@ -413,8 +444,36 @@ class RagasTests(unittest.TestCase):
                 return self.value
         metrics = {name: Metric(float("nan") if name == "answer_relevancy" else 0.5) for name in METRIC_NAMES}
         result = asyncio.run(RagasEvaluator(metrics, Sample).score("q", "a", [], "r", include_context_metrics=False))
-        self.assertEqual(([None] * 3, None, 1), ([result[name] for name in METRIC_NAMES[:3]], result["answer_relevancy"], len(result["metric_errors"])))
+        self.assertEqual(([None] * 4, None, 1), ([result[name] for name in METRIC_NAMES[:4]], result["answer_relevancy"], len(result["metric_errors"])))
         self.assertIn("non-finite", result["metric_errors"][0])
+
+    def test_ragas_limits_metric_concurrency(self) -> None:
+        active = 0
+        peak = 0
+
+        class Sample:
+            def __init__(self, **fields: Any) -> None:
+                self.__dict__.update(fields)
+
+            def model_dump(self, exclude_none: bool = True) -> dict[str, Any]:
+                return self.__dict__
+
+        class Metric:
+            async def ascore(self, **kwargs: Any) -> float:
+                nonlocal active, peak
+                active += 1
+                peak = max(peak, active)
+                await asyncio.sleep(0.01)
+                active -= 1
+                return 0.5
+
+        metrics = {name: Metric() for name in METRIC_NAMES}
+        result = asyncio.run(
+            RagasEvaluator(metrics, Sample, concurrency=2).score("q", "a", ["c"], "r")
+        )
+
+        self.assertEqual(set(METRIC_NAMES), set(result))
+        self.assertEqual(2, peak)
 
 
 class CorrectionTests(unittest.TestCase):
@@ -426,9 +485,19 @@ class CorrectionTests(unittest.TestCase):
     def test_configuration_identity_adapter_provenance_and_failed_row_retry(self) -> None:
         class Generator:
             calls = 0
-            def answer(self, question: str, contexts: list[str]) -> GenerationResult:
+            require_retrieved_context: bool | None = None
+
+            def answer(
+                self,
+                question: str,
+                contexts: list[str],
+                *,
+                require_retrieved_context: bool,
+            ) -> GenerationResult:
                 self.calls += 1
+                self.require_retrieved_context = require_retrieved_context
                 return GenerationResult("answer", GenerationMeasurement.from_counts(1, 1, 1.0))
+
             def close(self) -> None: pass
         class Evaluator:
             async def score(self, **kwargs: Any) -> dict[str, float]: return {name: 0.5 for name in METRIC_NAMES}
@@ -436,6 +505,7 @@ class CorrectionTests(unittest.TestCase):
             config = self.config(temp_dir)
             identity = _experiment_configuration(config)
             self.assertEqual(("registry_remote", "0c6f0d0ea8f284b9070c3ffaa50677440943f984"), (identity["answer"]["adapter_provenance"], identity["retrieval"]["revision"]))
+            self.assertEqual(ANSWER_WITHOUT_CONTEXT_INSTRUCTION, identity["answer"]["prompt"])
             for options in (("--retrieval-k", "9"), ("--retrieval-embedding-revision", "other"), ("--max-new-tokens", "9"), ("--evaluator-model", "other"), ("--embedding-model", "other"), ("--strategy", "hyde")):
                 changed = self.config(temp_dir, *options); self.assertNotEqual(_output_paths(config, identity), _output_paths(changed, _experiment_configuration(changed)))
             local = Path(temp_dir) / "adapter"; local.mkdir(); (local / "adapter_config.json").touch(); (local / "adapter_model.safetensors").touch()
@@ -444,6 +514,7 @@ class CorrectionTests(unittest.TestCase):
             output, _ = _output_paths(config, identity); output.parent.mkdir(exist_ok=True); output.write_text('{"qa_id":"sample10-001","error":"transient"}\n')
             generator = Generator(); asyncio.run(run_benchmark(config, lambda: generator, evaluator_factory=Evaluator))
             self.assertEqual(1, generator.calls)
+            self.assertFalse(generator.require_retrieved_context)
             rows = _read_jsonl(output); self.assertEqual(1, len(rows)); self.assertNotIn("error", rows[0])
 
     def test_result_and_hyde_truncated_tail_recovery(self) -> None:
@@ -542,6 +613,119 @@ class CliTests(unittest.TestCase):
         self.assertIn('"samples": 10', sample.stdout)
         self.assertIn('"samples": 328', test.stdout)
         self.assertIn('"reference_chunk_ids": 108', test.stdout)
+
+
+class MatrixCliTests(unittest.TestCase):
+    def run_matrix_cli(self, *arguments: str) -> subprocess.CompletedProcess[str]:
+        return subprocess.run(
+            [sys.executable, "scripts/run_experiment_matrix.py", *arguments],
+            cwd=ROOT,
+            capture_output=True,
+            text=True,
+        )
+
+    def test_adapter_path_rejects_multi_model_matrix(self) -> None:
+        for adapter_arguments in (
+            ("--adapter-path", "outputs/custom-adapter"),
+            ("--adapter-path=outputs/custom-adapter",),
+        ):
+            with self.subTest(adapter_arguments=adapter_arguments):
+                result = self.run_matrix_cli("--mode", "sample10", *adapter_arguments)
+
+                self.assertEqual(2, result.returncode)
+                self.assertIn("--adapter-path requires --model <model>", result.stderr)
+                self.assertIn("Re-run with --model <model> to execute one model.", result.stderr)
+
+    def test_interactive_adapter_path_guard_uses_selected_mode(self) -> None:
+        with patch.object(sys, "path", [str(ROOT / "scripts"), *sys.path]):
+            matrix = importlib.import_module("run_experiment_matrix")
+
+        for mode, should_reject in (
+            ("smoke", False),
+            ("sample10", True),
+            ("full", True),
+        ):
+            with self.subTest(mode=mode), (
+                patch.object(
+                    sys,
+                    "argv",
+                    [
+                        "run_experiment_matrix.py",
+                        "--adapter-path",
+                        "outputs/custom-adapter",
+                        "--validate-data-only",
+                    ],
+                )
+            ), patch.object(matrix, "_interactive_mode", return_value=mode), (
+                redirect_stdout(io.StringIO())
+            ), redirect_stderr(io.StringIO()) as stderr:
+                if should_reject:
+                    with self.assertRaisesRegex(SystemExit, "2"):
+                        matrix.main()
+                    self.assertIn("--adapter-path requires --model <model>", stderr.getvalue())
+                else:
+                    matrix.main()
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "run_experiment_matrix.py",
+                    "--mode",
+                    "sample10",
+                    "--adapter-path",
+                    "outputs/custom-adapter",
+                ],
+            ),
+            patch.object(matrix, "_interactive_mode", side_effect=AssertionError("unexpected prompt")),
+            redirect_stderr(io.StringIO()) as stderr,
+        ):
+            with self.assertRaisesRegex(SystemExit, "2"):
+                matrix.main()
+            self.assertIn("--adapter-path requires --model <model>", stderr.getvalue())
+
+    def test_default_matrix_validation_remains_available(self) -> None:
+        result = self.run_matrix_cli("--mode", "sample10", "--validate-data-only")
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('"matrix_size": 12', result.stdout)
+
+    def test_adapter_path_allows_single_model_regardless_of_option_order(self) -> None:
+        for arguments in (
+            (
+                "--mode", "sample10", "--model", "gemma4_qlora", "--validate-data-only",
+                "--adapter-path=outputs/custom-adapter",
+            ),
+            (
+                "--mode", "sample10", "--adapter-path", "outputs/custom-adapter", "--model",
+                "gemma4_qlora", "--validate-data-only",
+            ),
+        ):
+            with self.subTest(arguments=arguments):
+                result = self.run_matrix_cli(*arguments)
+
+                self.assertEqual(0, result.returncode, result.stderr)
+                self.assertIn('"matrix_size": 3', result.stdout)
+
+    def test_validation_matrix_size_honors_strategy_filter(self) -> None:
+        result = self.run_matrix_cli(
+            "--mode", "sample10", "--model", "gemma4_qlora", "--strategy", "hyde",
+            "--validate-data-only",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('"matrix_size": 1', result.stdout)
+
+    def test_full_mode_limit_selects_maternaqa_subset(self) -> None:
+        result = self.run_matrix_cli(
+            "--mode", "full", "--model", "gemma4_base", "--limit", "10", "--validate-data-only",
+        )
+
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertIn('"dataset_mode": "maternaqa_test"', result.stdout)
+        self.assertIn('"samples": 10', result.stdout)
+        self.assertIn('"limit": 10', result.stdout)
 
 
 if __name__ == "__main__":

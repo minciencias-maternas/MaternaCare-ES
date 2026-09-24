@@ -1,0 +1,316 @@
+<mxfile host="Electron">
+  <diagram name="Visual LoRA matrices" id="lora-matrix-visual">
+    <mxGraphModel dx="1230" dy="741" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="620" pageHeight="1100" math="1" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="addition" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;shadow=0;" value="" vertex="1">
+          <mxGeometry height="245" width="540" x="40" y="110" as="geometry" />
+        </mxCell>
+        <mxCell id="additionbadge" parent="addition" style="ellipse;html=1;fillColor=#1683A8;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="01" vertex="1">
+          <mxGeometry height="28" width="28" x="20" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="addhead" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#657786;" value="WEIGHT UPDATE" vertex="1">
+          <mxGeometry height="24" width="260" x="55" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="w0label" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#233746;" value="&lt;b&gt;Frozen weights&lt;/b&gt;&lt;br&gt;W₀ ∈ R^(d×k)" vertex="1">
+          <mxGeometry height="38" width="135" x="30" y="47" as="geometry" />
+        </mxCell>
+        <mxCell id="w0matrix" parent="addition" style="rounded=0;html=1;fillColor=#1683A8;strokeColor=#0F607C;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="96" width="96" x="50" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="w0v1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="74" y="90" as="sourcePoint" />
+            <mxPoint x="74" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w0v2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="98" y="90" as="sourcePoint" />
+            <mxPoint x="98" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w0v3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="122" y="90" as="sourcePoint" />
+            <mxPoint x="122" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w0h1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="50" y="114" as="sourcePoint" />
+            <mxPoint x="146" y="114" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w0h2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="50" y="138" as="sourcePoint" />
+            <mxPoint x="146" y="138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="w0h3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="50" y="162" as="sourcePoint" />
+            <mxPoint x="146" y="162" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="plus" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=24;fontStyle=1;fontColor=#5B6B79;" value="+" vertex="1">
+          <mxGeometry height="30" width="30" x="162" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="dwlabel" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#233746;" value="&lt;b&gt;LoRA update&lt;/b&gt;&lt;br&gt;ΔW = (α/r)BA" vertex="1">
+          <mxGeometry height="38" width="145" x="192" y="47" as="geometry" />
+        </mxCell>
+        <mxCell id="dwmatrix" parent="addition" style="rounded=0;html=1;fillColor=#8356A7;strokeColor=#623C81;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="96" width="96" x="217" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="dwv1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="241" y="90" as="sourcePoint" />
+            <mxPoint x="241" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dwv2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="265" y="90" as="sourcePoint" />
+            <mxPoint x="265" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dwv3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="289" y="90" as="sourcePoint" />
+            <mxPoint x="289" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dwh1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="217" y="114" as="sourcePoint" />
+            <mxPoint x="313" y="114" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dwh2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="217" y="138" as="sourcePoint" />
+            <mxPoint x="313" y="138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="dwh3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="217" y="162" as="sourcePoint" />
+            <mxPoint x="313" y="162" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="equals" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=24;fontStyle=1;fontColor=#5B6B79;" value="=" vertex="1">
+          <mxGeometry height="30" width="30" x="333" y="120" as="geometry" />
+        </mxCell>
+        <mxCell id="welabel" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#233746;" value="&lt;b&gt;Adapted weights&lt;/b&gt;&lt;br&gt;W* = W₀ + ΔW" vertex="1">
+          <mxGeometry height="38" width="145" x="365" y="47" as="geometry" />
+        </mxCell>
+        <mxCell id="wematrix" parent="addition" style="rounded=0;html=1;fillColor=#B84AB8;strokeColor=#873287;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="96" width="96" x="390" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="wev1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="414" y="90" as="sourcePoint" />
+            <mxPoint x="414" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wev2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="438" y="90" as="sourcePoint" />
+            <mxPoint x="438" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="wev3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="462" y="90" as="sourcePoint" />
+            <mxPoint x="462" y="186" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="weh1" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="114" as="sourcePoint" />
+            <mxPoint x="486" y="114" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="weh2" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="138" as="sourcePoint" />
+            <mxPoint x="486" y="138" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="weh3" edge="1" parent="addition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="390" y="162" as="sourcePoint" />
+            <mxPoint x="486" y="162" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="addnote" parent="addition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#657786;fontStyle=2;" value="The backbone stays frozen; training learns only the compact correction ΔW." vertex="1">
+          <mxGeometry height="24" width="430" x="55" y="202" as="geometry" />
+        </mxCell>
+        <mxCell id="decomposition" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;shadow=0;" value="" vertex="1">
+          <mxGeometry height="280" width="540" x="40" y="385" as="geometry" />
+        </mxCell>
+        <mxCell id="decompbadge" parent="decomposition" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="02" vertex="1">
+          <mxGeometry height="28" width="28" x="20" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="dechead" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#657786;" value="LOW-RANK DECOMPOSITION" vertex="1">
+          <mxGeometry height="24" width="300" x="60" y="14" as="geometry" />
+        </mxCell>
+        <mxCell id="blabel" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#2E9B65;" value="&lt;b&gt;B&lt;/b&gt;&lt;br&gt;d × r" vertex="1">
+          <mxGeometry height="38" width="110" x="35" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="bmatrix" parent="decomposition" style="rounded=0;html=1;fillColor=#55B978;strokeColor=#2E9B65;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="120" width="54" x="65" y="92" as="geometry" />
+        </mxCell>
+        <mxCell id="bv1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="92" y="92" as="sourcePoint" />
+            <mxPoint x="92" y="212" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bh1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="65" y="122" as="sourcePoint" />
+            <mxPoint x="119" y="122" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bh2" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="65" y="152" as="sourcePoint" />
+            <mxPoint x="119" y="152" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bh3" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="65" y="182" as="sourcePoint" />
+            <mxPoint x="119" y="182" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="times" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=24;fontStyle=1;fontColor=#5B6B79;" value="×" vertex="1">
+          <mxGeometry height="35" width="35" x="145" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="alabel" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#D87922;" value="&lt;b&gt;A&lt;/b&gt;&lt;br&gt;r × k" vertex="1">
+          <mxGeometry height="38" width="160" x="180" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="amatrix" parent="decomposition" style="rounded=0;html=1;fillColor=#F2A329;strokeColor=#D87922;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="60" width="132" x="195" y="117" as="geometry" />
+        </mxCell>
+        <mxCell id="av1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="228" y="117" as="sourcePoint" />
+            <mxPoint x="228" y="177" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="av2" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="261" y="117" as="sourcePoint" />
+            <mxPoint x="261" y="177" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="av3" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="294" y="117" as="sourcePoint" />
+            <mxPoint x="294" y="177" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ah1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="195" y="147" as="sourcePoint" />
+            <mxPoint x="327" y="147" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="decequals" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=24;fontStyle=1;fontColor=#5B6B79;" value="=" vertex="1">
+          <mxGeometry height="35" width="35" x="337" y="135" as="geometry" />
+        </mxCell>
+        <mxCell id="balabel" parent="decomposition" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontColor=#8356A7;" value="&lt;b&gt;BA&lt;/b&gt;&lt;br&gt;d × k" vertex="1">
+          <mxGeometry height="38" width="145" x="370" y="52" as="geometry" />
+        </mxCell>
+        <mxCell id="bamatrix" parent="decomposition" style="rounded=0;html=1;fillColor=#8356A7;strokeColor=#623C81;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="96" width="96" x="395" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="bav1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="419" y="105" as="sourcePoint" />
+            <mxPoint x="419" y="201" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bav2" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="443" y="105" as="sourcePoint" />
+            <mxPoint x="443" y="201" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bav3" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="467" y="105" as="sourcePoint" />
+            <mxPoint x="467" y="201" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bah1" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="395" y="129" as="sourcePoint" />
+            <mxPoint x="491" y="129" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bah2" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="395" y="153" as="sourcePoint" />
+            <mxPoint x="491" y="153" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="bah3" edge="1" parent="decomposition" style="endArrow=none;html=1;strokeColor=#FFFFFF;strokeWidth=4;">
+          <mxGeometry relative="1" as="geometry">
+            <mxPoint x="395" y="177" as="sourcePoint" />
+            <mxPoint x="491" y="177" as="targetPoint" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="ranknote" parent="decomposition" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=11;fontColor=#14324B;" value="$$r\ll\min(d,k)\quad\Longrightarrow\quad \operatorname{rank}(BA)\le r$$" vertex="1">
+          <mxGeometry height="42" width="280" x="130" y="225" as="geometry" />
+        </mxCell>
+        <mxCell id="forward" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;whiteSpace=wrap;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;shadow=0;" value="" vertex="1">
+          <mxGeometry height="350" width="540" x="40" y="695" as="geometry" />
+        </mxCell>
+        <mxCell id="forwardbadge" parent="forward" style="ellipse;html=1;fillColor=#2E9B65;strokeColor=none;fontColor=#FFFFFF;fontSize=11;fontStyle=1;" value="03" vertex="1">
+          <mxGeometry height="28" width="28" x="20" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="forwardhead" parent="forward" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=12;fontStyle=1;fontColor=#657786;" value="FORWARD PASS" vertex="1">
+          <mxGeometry height="24" width="260" x="55" y="12" as="geometry" />
+        </mxCell>
+        <mxCell id="x" parent="forward" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=13;" value="$$x\in\mathbb{R}^{k}$$" vertex="1">
+          <mxGeometry height="44" width="110" x="215" y="48" as="geometry" />
+        </mxCell>
+        <mxCell id="basepath" parent="forward" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;strokeWidth=1.5;fontSize=13;" value="&lt;b&gt;Frozen path&lt;/b&gt;&lt;br&gt;dequant(W₀) x" vertex="1">
+          <mxGeometry height="70" width="170" x="55" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="adapterpath" parent="forward" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#FFF1DF;strokeColor=#D87922;strokeWidth=1.5;fontSize=13;" value="&lt;b&gt;Trainable path&lt;/b&gt;&lt;br&gt;x → A → B → (α/r)BAx" vertex="1">
+          <mxGeometry height="70" width="170" x="315" y="130" as="geometry" />
+        </mxCell>
+        <mxCell id="sum" parent="forward" style="ellipse;whiteSpace=wrap;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;fontSize=20;fontStyle=1;fontColor=#14324B;" value="+" vertex="1">
+          <mxGeometry height="50" width="50" x="245" y="230" as="geometry" />
+        </mxCell>
+        <mxCell id="h" parent="forward" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;strokeWidth=1.5;fontSize=13;fontColor=#14324B;" value="$$h=\operatorname{dequant}(W_0)x+\frac{\alpha}{r}BAx$$" vertex="1">
+          <mxGeometry height="44" width="300" x="120" y="295" as="geometry" />
+        </mxCell>
+        <mxCell id="e_x_base" edge="1" parent="forward" source="x" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1683A8;strokeWidth=1.5;endArrow=classic;" target="basepath">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_x_adapter" edge="1" parent="forward" source="x" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D87922;strokeWidth=1.5;endArrow=classic;" target="adapterpath">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_base_sum" edge="1" parent="forward" source="basepath" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#1683A8;strokeWidth=1.5;endArrow=classic;" target="sum">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_adapter_sum" edge="1" parent="forward" source="adapterpath" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#D87922;strokeWidth=1.5;endArrow=classic;" target="sum">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e_sum_h" edge="1" parent="forward" source="sum" style="edgeStyle=orthogonalEdgeStyle;rounded=1;html=1;strokeColor=#2E9B65;strokeWidth=1.5;endArrow=classic;" target="h">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="foot" parent="1" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=10;fontColor=#657786;fontStyle=2;" value="Visual dimensions are schematic; the equations state the exact tensor shapes." vertex="1">
+          <mxGeometry height="24" width="540" x="40" y="1060" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

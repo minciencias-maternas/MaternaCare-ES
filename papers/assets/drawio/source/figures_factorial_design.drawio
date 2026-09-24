@@ -1,0 +1,94 @@
+<mxfile host="Electron">
+  <diagram name="Factorial design" id="factorial-design">
+    <mxGraphModel dx="1664" dy="1002" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="620" pageHeight="930" math="1" shadow="0" adaptiveColors="auto">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+        <mxCell id="input" parent="1" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=14;" value="&lt;b&gt;Held-out test item&lt;/b&gt;&lt;br&gt;Q · source context · reference answer" vertex="1">
+          <mxGeometry height="74" width="320" x="150" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="fcard" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="205" width="540" x="40" y="195" as="geometry" />
+        </mxCell>
+        <mxCell id="b1" parent="fcard" style="ellipse;html=1;fillColor=#8356A7;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="01" vertex="1">
+          <mxGeometry height="32" width="30.857142857142858" x="19.285714285714285" y="21" as="geometry" />
+        </mxCell>
+        <mxCell id="fm" parent="fcard" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=13;" value="&lt;b&gt;MODEL&lt;/b&gt;&lt;br&gt;Gemma 4&lt;br&gt;MedGemma 1.5" vertex="1">
+          <mxGeometry height="92" width="135" x="33.75" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="fs" parent="fcard" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=13;" value="&lt;b&gt;STATE&lt;/b&gt;&lt;br&gt;&lt;font&gt;&lt;font color=&quot;#1683A8&quot;&gt;W₀ Base&lt;/font&gt;&lt;br&gt;&lt;/font&gt;&lt;font color=&quot;#D87922&quot;&gt;W₀ + BA QLoRA&lt;/font&gt;" vertex="1">
+          <mxGeometry height="92" width="135" x="192.85714285714286" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="fr" parent="fcard" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontSize=13;" value="&lt;b&gt;RETRIEVAL&lt;/b&gt;&lt;br&gt;∅ no_rag&lt;br&gt;⇄ hybrid&lt;br&gt;d̂ HyDE" vertex="1">
+          <mxGeometry height="92" width="135" x="351.9642857142857" y="78" as="geometry" />
+        </mxCell>
+        <mxCell id="LyE7SOylf82c9a7XZqKl-2" parent="fcard" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Factor levels&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Defines the orthogonal experimental factors and their evaluated levels.&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="414.64285714285717" x="62.67857142857143" y="11" as="geometry" />
+        </mxCell>
+        <mxCell id="e0" edge="1" parent="1" source="input" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="fcard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="mcard" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#FFFFFF;strokeColor=#CAD3DC;strokeWidth=1.5;" value="" vertex="1">
+          <mxGeometry height="265" width="540" x="40" y="430" as="geometry" />
+        </mxCell>
+        <mxCell id="b2" parent="mcard" style="ellipse;html=1;fillColor=#1683A8;strokeColor=none;fontColor=#FFFFFF;fontSize=12;fontStyle=1;" value="02" vertex="1">
+          <mxGeometry height="32" width="32" x="20" y="16" as="geometry" />
+        </mxCell>
+        <mxCell id="ch1" parent="mcard" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=1;fontColor=#657786;align=center;" value="BASE" vertex="1">
+          <mxGeometry height="20" width="120" x="180" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="ch2" parent="mcard" style="text;html=1;strokeColor=none;fillColor=none;fontSize=10;fontStyle=1;fontColor=#657786;align=center;" value="GROUNDED QLoRA" vertex="1">
+          <mxGeometry height="20" width="150" x="340" y="62" as="geometry" />
+        </mxCell>
+        <mxCell id="rh1" parent="mcard" style="text;html=1;strokeColor=none;fillColor=none;align=right;fontSize=11;fontStyle=1;fontColor=#14324B;" value="Gemma 4" vertex="1">
+          <mxGeometry height="25" width="120" x="25" y="105" as="geometry" />
+        </mxCell>
+        <mxCell id="rh2" parent="mcard" style="text;html=1;strokeColor=none;fillColor=none;align=right;fontSize=11;fontStyle=1;fontColor=#14324B;" value="MedGemma 1.5" vertex="1">
+          <mxGeometry height="25" width="120" x="25" y="175" as="geometry" />
+        </mxCell>
+        <mxCell id="m11" parent="mcard" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=14;fontStyle=1;" value="W₀" vertex="1">
+          <mxGeometry height="52" width="130" x="175" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="m12" parent="mcard" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=14;fontStyle=1;" value="W₀ + BA" vertex="1">
+          <mxGeometry height="52" width="130" x="350" y="90" as="geometry" />
+        </mxCell>
+        <mxCell id="m21" parent="mcard" style="rounded=0;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=14;fontStyle=1;" value="W₀" vertex="1">
+          <mxGeometry height="52" width="130" x="175" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="m22" parent="mcard" style="rounded=0;html=1;fillColor=#FFF1DF;strokeColor=#D87922;fontSize=14;fontStyle=1;" value="W₀ + BA" vertex="1">
+          <mxGeometry height="52" width="130" x="350" y="160" as="geometry" />
+        </mxCell>
+        <mxCell id="LyE7SOylf82c9a7XZqKl-10" parent="mcard" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=15;fontColor=#14324B;" value="&lt;b&gt;Model × adaptation matrix&lt;/b&gt;&lt;br&gt;&lt;font color=&quot;#657786&quot;&gt;Crosses each base architecture with its corresponding adaptation state.&lt;/font&gt;" vertex="1">
+          <mxGeometry height="42" width="477" x="63" y="11" as="geometry" />
+        </mxCell>
+        <mxCell id="e1" edge="1" parent="1" source="fcard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="mcard">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="hero" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#F1EBF7;strokeColor=#8356A7;strokeWidth=1.5;fontSize=12;" value="$$\underbrace{2}_{\text{models}}\times\underbrace{2}_{\text{states}}\times\underbrace{3}_{\text{retrieval modes}}=12\ \text{conditions}$$" vertex="1">
+          <mxGeometry height="72" width="480" x="70" y="725" as="geometry" />
+        </mxCell>
+        <mxCell id="e2" edge="1" parent="1" source="mcard" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="hero">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="infer" parent="1" style="rounded=1;absoluteArcSize=1;arcSize=10;html=1;fillColor=#E8F4FA;strokeColor=#1683A8;fontSize=13;" value="&lt;b&gt;Paired inference&lt;/b&gt;&lt;br&gt;greedy decoding" vertex="1">
+          <mxGeometry height="54" width="145" x="65" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="prov" parent="1" style="shape=mxgraph.flowchart.document;whiteSpace=wrap;html=1;fillColor=#F7F9FB;strokeColor=#7C8B98;fontSize=13;" value="&lt;b&gt;Provenance&lt;/b&gt;&lt;br&gt;condition + qa_id" vertex="1">
+          <mxGeometry height="54" width="140" x="240" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="ragas" parent="1" style="rounded=0;html=1;fillColor=#EAF6EE;strokeColor=#2E9B65;fontFamily=monospace;fontSize=13;" value="&lt;b&gt;RAGAS&lt;/b&gt;&lt;br&gt;[F AR AC SS]" vertex="1">
+          <mxGeometry height="54" width="145" x="410" y="830" as="geometry" />
+        </mxCell>
+        <mxCell id="e31" edge="1" parent="1" source="hero" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="infer">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e32" edge="1" parent="1" source="infer" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="prov">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="e33" edge="1" parent="1" source="prov" style="edgeStyle=orthogonalEdgeStyle;rounded=0;html=1;strokeColor=#5B6B79;strokeWidth=1.5;" target="ragas">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

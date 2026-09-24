@@ -29,7 +29,7 @@ El proyecto incluye:
 
 - **Scripts reproducibles** de entrenamiento QLoRA con TRL y PEFT.
 - **Adapters entrenados** para Gemma 4 E2B y MedGemma 1.5 4B.
-- **Evaluaciones completas** con métricas basadas en LLM-as-judge (RAGAS: faithfulness, answer relevancy, answer correctness, semantic similarity).
+- **Evaluaciones completas** con métricas basadas en LLM-as-judge (RAGAS: context precision, context recall, faithfulness, noise sensitivity, answer relevancy, answer correctness y semantic similarity).
 - **Checkpoints intermedios** para reanudar entrenamiento o auditar el proceso.
 - **Documentación técnica** de decisiones de arquitectura y hiperparámetros.
 
@@ -238,15 +238,20 @@ El proyecto evalúa las predicciones utilizando RAGAS con un LLM-as-judge (GPT-4
 
 | Métrica | Qué mide | Rango |
 |---------|----------|-------|
+| **Context Precision** | Qué tan relevantes son los fragmentos recuperados y su orden | 0–1 |
+| **Context Recall** | Qué tanto de la información necesaria aparece en el contexto recuperado | 0–1 |
 | **Faithfulness** | Qué tan fiel es la respuesta al contexto proporcionado | 0–1 |
+| **Noise Sensitivity** | Cuánto afecta el contexto irrelevante a la respuesta (`mode=irrelevant`) | 0–1 |
 | **Answer Relevancy** | Qué tan relevante es la respuesta respecto a la pregunta | 0–1 |
 | **Answer Correctness** | Qué tan correcta es la respuesta comparada con la referencia | 0–1 |
 | **Semantic Similarity** | Similitud semántica entre la respuesta y la referencia (embeddings) | 0–1 |
 
+El timeout predeterminado de RAGAS es de **600 segundos por métrica y por predicción**. Los errores de una métrica se conservan en el campo `error` o `metric_errors`; un `null` acompañado de ese campo no debe interpretarse como una puntuación válida. En `no_rag`, las métricas que requieren contexto recuperado se omiten intencionalmente.
+
 ### Evaluación de predicciones
 
 ```bash
-# Evaluar predicciones con RAGAS (faithfulness, answer relevancy, answer correctness, semantic similarity)
+# Evaluar predicciones con RAGAS (faithfulness, noise sensitivity, answer relevancy, answer correctness, semantic similarity)
 python scripts/evaluate_model_predictions.py \
   --input outputs/gemma4-grounded/test_predictions.jsonl \
   --output outputs/gemma4-grounded/test_eval.jsonl
