@@ -1,6 +1,6 @@
 # Paper Writing Rules
 
-This project is an academic paper project.
+The current manuscript and bibliography are `papers/oficial/MaternaCare_ES_with_QLoRA_table.tex` and `papers/oficial/references.bib`.
 
 ## Non-negotiable rules
 
@@ -12,15 +12,11 @@ This project is an academic paper project.
 - Preserve LaTeX compilation.
 - Do not rewrite the whole paper unless explicitly requested.
 - Prefer small, reviewable edits.
-- Maintain a changelog of major paper revisions.
 
 ## Bibliography workflow
 
 When adding references:
-1. Use paper-search-mcp to search academic sources.
-2. Prefer DOI-based metadata from Crossref, Semantic Scholar, OpenAlex, or arXiv.
-3. Update `references.bib`.
-4. Do not invent missing fields.
-5. Use BibTeX keys in the format `lastnameYearKeyword`.
-6. Every citation used in `.tex` must exist in `references.bib`.
-7. Every entry in `references.bib` must correspond to a paper found through a reliable academic source.
+1. Verify the source using a reliable academic index or publisher page; prefer DOI-based metadata from Crossref, Semantic Scholar, OpenAlex, or arXiv.
+2. Update `papers/oficial/references.bib`; do not invent missing fields.
+3. Use BibTeX keys in the format `lastnameYearKeyword`.
+4. Every citation used in `.tex` must exist in the bibliography, and every bibliography entry must be traceable to a reliable academic source.
