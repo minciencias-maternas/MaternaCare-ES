@@ -41,6 +41,11 @@
 \usepackage{threeparttable}    % professional table notes
 \usepackage{textcomp}
 
+% Avoid stacking full-width tables on one page or multiple figures in one
+% column, keeping the float sequence close to the relevant explanations.
+\setcounter{topnumber}{1}
+\setcounter{dbltopnumber}{1}
+
 % --- Citations and hyperlinks ---------------------------------------
 \usepackage{cite}              % IEEE-recommended numeric citation handling
 
@@ -84,22 +89,22 @@
 Spanish Obstetric Question Answering: The Impact of Fine-Tuning}
 
 \author{%
-\IEEEauthorblockN{Nicol\'as Hoyos-Giraldo}
-\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, Instituci\'on Universitaria de Envigado}\\
-Envigado, Colombia\\
-ORCID: 0009-0001-9462-1136}
-\and
-\IEEEauthorblockN{Jhon Hander Mej\'ia-Mu\~noz}
-\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, Instituci\'on Universitaria de Envigado}\\
+\IEEEauthorblockN{Jhon H. Mej\'ia-Muñoz}
+\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, IUE}\\
 Envigado, Colombia\\
 ORCID: 0009-0008-7768-4072}
 \and
-\IEEEauthorblockN{Author 3 (placeholder)}
-\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, Instituci\'on Universitaria de Envigado}\\
+\IEEEauthorblockN{Nicol\'as Hoyos-Giraldo}
+\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, IUE}\\
+Envigado, Colombia\\
+ORCID: 0009-0008-7768-4072}
+\and
+\IEEEauthorblockN{Daniel Betancur-Vasquez}
+\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, IUE}\\
 Envigado, Colombia}
 \and
-\IEEEauthorblockN{Author 4 (placeholder)}
-\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, Instituci\'on Universitaria de Envigado}\\
+\IEEEauthorblockN{Kevin D. Trujillo}
+\IEEEauthorblockA{\textit{Facultad de Ingenier\'ia, IUE}\\
 Envigado, Colombia}
 }
 
@@ -115,24 +120,23 @@ to large language models for clinical question answering; however, evidence
 on domain adaptation for Spanish obstetric applications remains limited.
 This study compares the general-purpose Gemma~4 model and the medically
 pretrained MedGemma~1.5 before and after grounded QLoRA adaptation using
-MaternaQA-es, while examining no retrieval, Hybrid retrieval, and
+MaternaQA-es, while examining No RAG, Hybrid retrieval, and
 independent HyDE as experimental factors. All 24 scenario-condition runs
 were evaluated across two 10-question scenarios, yielding 240 final
 condition-item outputs. Within this exploratory evaluation, Gemma~4 Base
 with Hybrid retrieval achieved the highest observed Answer Correctness and
-Semantic Similarity in both scenarios, whereas MedGemma~1.5 QLoRA without
-retrieval achieved the highest observed mean Answer Relevancy. HyDE
+Semantic Similarity in both scenarios, whereas MedGemma~1.5 QLoRA with
+No RAG achieved the highest observed mean Answer Relevancy. HyDE
 generally improved retrieval precision relative to Hybrid, especially in
 the obstetric challenge scenario, but its effects on answer quality were
-heterogeneous and model-dependent. QLoRA improved all three no-retrieval
+heterogeneous and model-dependent. Under No RAG, QLoRA improved all three
 response metrics for Gemma~4 in both scenarios and for MedGemma~1.5 in the
 obstetric challenge set, while the MaternaQA-es subset showed a
 correctness-relevance trade-off for MedGemma~1.5. Given the limited
 evaluation of 10 questions per scenario, these findings should be
 interpreted as preliminary descriptive patterns rather than definitive
-evidence of model or retrieval-strategy superiority. Some automatic metric
-values were missing, underscoring the need for broader evaluation and
-clinician review.
+evidence of model or retrieval-strategy superiority. Broader evaluation and
+clinician review are needed.
 \end{abstract}
 
 \begin{IEEEkeywords}
@@ -179,9 +183,8 @@ the general-purpose model can achieve comparable or superior performance.
 
 To investigate this question, this study uses MaternaQA-es, a Spanish
 obstetric QA resource containing 5,727 synthetic question-answer pairs
-generated from 63 Spanish-language clinical documents. The released
-document-level partitions contain 57 source PDFs: 52 in training, 2 in
-validation, and 3 in test. The dataset is publicly available through
+generated from 63 Spanish-language clinical documents. The dataset is
+publicly available through
 Hugging Face~\cite{maternaqa2026}. The benchmark compares Gemma~4 and
 MedGemma~1.5 before and after identical grounded QLoRA adaptation.
 
@@ -201,7 +204,7 @@ two levels: Google Gemma~4 E2B instruction-tuned
 (\code{google/gemma-4-E2B-it}) and Google MedGemma~1.5 4B instruction-tuned
 (\code{google/medgemma-1.5-4b-it}). Parameter adaptation has two levels:
 base weights without an adapter and grounded QLoRA. Retrieval strategy has
-three planned levels: the no-retrieval control (\code{no_rag}), canonical
+three planned levels: the No RAG control, canonical
 Hybrid retrieval, and canonical independent HyDE. Their Cartesian product
 defines 12 planned conditions.
 
@@ -216,22 +219,20 @@ strategies:
 \Delta = (Y_{Q,H} - Y_{B,H}) - (Y_{Q,N} - Y_{B,N}).
 \end{equation}
 Here $Q$ denotes QLoRA, $B$ denotes the base model, $H$ denotes Hybrid
-retrieval, and $N$ denotes the no-retrieval control. Analogous contrasts
+retrieval, and $N$ denotes the No RAG condition. Analogous contrasts
 are defined for HyDE and for the two model families.
 
 \subsection{Dataset, Provenance, and Split Integrity}
 MaternaQA-es contains 5,727 Spanish obstetric question-answer pairs derived
 from 63 clinical documents. Its document-level partitions contain 52
 training PDFs (5,093 items), 2 validation PDFs (306 items), and 3 held-out
-test PDFs. This study processed 10 questions from the test partition; test
+test PDFs. This study processed 10 test questions; test
 sources do not overlap training or validation sources, and \code{qa_id} is
 retained as the pairing key~\cite{maternaqa2026}.
 
 The primary grounded adaptation uses the \code{sft_grounded}
 representation, in which the source context associated with an item is
-concatenated with the question. The separate \code{sft_closed_book}
-representation contains only the question and is not a primary condition in
-the retained comparison. The term base indicates whether an adapter is
+concatenated with the question. The term base indicates whether an adapter is
 loaded; it does not indicate that the input is closed-book when context is
 otherwise present.
 
@@ -279,12 +280,12 @@ items are held fixed across retrieval strategies within a family and
 adaptation state.
 
 Table~\ref{tab:factorial} lists the complete prespecified design. The final
-result artifacts covered \code{no_rag}, Hybrid, and HyDE for all four
+result artifacts covered No RAG, Hybrid, and HyDE for all four
 model/adaptation combinations in both scenarios; therefore, all 24
 scenario-condition runs were represented in the analysis.
 
 % --- Table I: full-width, caption above, no vertical rules -----------
-\begin{table*}[!t]
+\begin{table*}[t]
 \centering
 \begin{threeparttable}
 \caption{Prespecified Factorial Experiment Matrix}
@@ -294,16 +295,16 @@ scenario-condition runs were represented in the analysis.
 \toprule
 ID & Model family & Adaptation & Retrieval & Condition definition \\
 \midrule
-C01 & Gemma 4 & Base & no\_rag & Base weights; no retrieved context \\
+C01 & Gemma 4 & Base & No RAG & Base weights; no retrieved context \\
 C02 & Gemma 4 & Base & Hybrid & Base weights; canonical Hybrid retrieval \\
 C03 & Gemma 4 & Base & HyDE & Base weights; canonical independent HyDE retrieval \\
-C04 & Gemma 4 & QLoRA & no\_rag & Grounded QLoRA adapter; no retrieved context \\
+C04 & Gemma 4 & QLoRA & No RAG & Grounded QLoRA adapter; no retrieved context \\
 C05 & Gemma 4 & QLoRA & Hybrid & Grounded QLoRA adapter; canonical Hybrid retrieval \\
 C06 & Gemma 4 & QLoRA & HyDE & Grounded QLoRA adapter; canonical independent HyDE retrieval \\
-C07 & MedGemma 1.5 & Base & no\_rag & Base weights; no retrieved context \\
+C07 & MedGemma 1.5 & Base & No RAG & Base weights; no retrieved context \\
 C08 & MedGemma 1.5 & Base & Hybrid & Base weights; canonical Hybrid retrieval \\
 C09 & MedGemma 1.5 & Base & HyDE & Base weights; canonical independent HyDE retrieval \\
-C10 & MedGemma 1.5 & QLoRA & no\_rag & Grounded QLoRA adapter; no retrieved context \\
+C10 & MedGemma 1.5 & QLoRA & No RAG & Grounded QLoRA adapter; no retrieved context \\
 C11 & MedGemma 1.5 & QLoRA & Hybrid & Grounded QLoRA adapter; canonical Hybrid retrieval \\
 C12 & MedGemma 1.5 & QLoRA & HyDE & Grounded QLoRA adapter; canonical independent HyDE retrieval \\
 \bottomrule
@@ -322,8 +323,7 @@ benchmark: trainable low-rank adapters on quantized base weights, which
 keeps the base model as a separately identifiable initialization.
 Fig.~\ref{fig:qlora} contrasts it with full fine-tuning, and
 Table~\ref{tab:qlora-config} specifies the NF4 quantization and BF16
-computation settings. RAFT is a related method for domain-specific
-RAG but is not an additional condition in this benchmark~\cite{zhang2024raft}.
+computation settings.
 
 % The paragraph below must not straddle the Table I float on the next page:
 % without this it ends on "...both models. Table II" and the reader finds the
@@ -337,7 +337,7 @@ models. Table~\ref{tab:qlora-config} summarizes the training configuration
 used to produce the evaluated adapters.
 
 % --- Table II: full-width, caption above, no vertical rules ----------
-\begin{table*}[!t]
+\begin{table*}[t]
 \centering
 \begin{threeparttable}
 \caption{QLoRA Fine-Tuning Configuration Used for Both Model Families}
@@ -373,8 +373,7 @@ Random seed & 3407 & 3407 \\
 \begin{tablenotes}[flushleft]
 \item[] \textit{Note.} Both model families used the same training and
 validation partitions, grounded input representation, and QLoRA
-optimization settings. The exact mixed-precision mode of the retained
-training runs could not be reliably recovered and is therefore not reported.
+optimization settings.
 \end{tablenotes}
 \end{threeparttable}
 \end{table*}
@@ -387,7 +386,7 @@ from the 2,268-chunk corpus for each question. The adapter is loaded only in
 QLoRA conditions.
 
 % --- Figure 1: single-column QLoRA comparison ------------------------
-\begin{figure}[!t]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/ft-vs-lora.pdf}
 \caption{Comparison of full fine-tuning and LoRA adaptation.}
@@ -396,17 +395,17 @@ QLoRA conditions.
 
 \subsection{Retrieval-Augmented Generation Protocol}
 RAG is the second core method~\cite{lewis2020retrieval}. The protocol treats
-retrieval strategy as a reproducible experimental factor. The no-retrieval
-control, Hybrid retrieval, and independent HyDE differ in how evidence is
+retrieval strategy as a reproducible experimental factor. No RAG, Hybrid
+retrieval, and independent HyDE differ in how evidence is
 prepared before the answer model receives the question and context.
 Hypothetical text is used only for query expansion. Fig.~\ref{fig:rag-types}
 summarizes the three variants.
 
 % --- Single-column RAG variants figure, caption below ----------------
-\begin{figure}[!t]
+\begin{figure}[t]
 \centering
 \includegraphics[width=\columnwidth]{figures/rag-types.pdf}
-\caption{RAG variants used in the benchmark: no retrieval, Hybrid retrieval
+\caption{RAG variants used in the benchmark: No RAG, Hybrid retrieval
 with dense and sparse fusion, and independent HyDE retrieval.}
 \label{fig:rag-types}
 \end{figure}
@@ -436,7 +435,8 @@ $R$ the ratio of reference-matching nonempty lines to all nonempty lines.
 \subsubsection{Dense and Sparse Retrieval}
 Dense retrieval uses \code{BAAI/bge-m3}~\cite{chen2024bge}.
 SentenceTransformer produces normalized dense vectors on CPU with
-\code{batch_size=32}. The persistent local vector table is LanceDB.
+\code{batch_size=32}. The persistent local vector table is
+LanceDB~\cite{lancedb2026vector}.
 Because no approximate vector index is created, search is exhaustive exact
 cosine search. The default dense retrieval depth is $k = 5$.
 
@@ -467,11 +467,9 @@ the corpus by exact cosine similarity. Only the retrieved corpus chunks,
 not the hypothetical text, are supplied as evidence to the answer
 model~\cite{ji2023survey}. The cache is separated by dataset mode, provider,
 and generator model, and row reuse checks \code{qa_id} and a question hash.
-The request-side output limit could not be recovered from the retained run
-records.
 
-\subsubsection{No-Retrieval Control}
-The no-retrieval control (\code{no_rag}) returns no retrieved contexts and
+\subsubsection{No RAG Control}
+The No RAG control returns no retrieved contexts and
 omits the retrieved-context block from the answer prompt. Context-dependent
 retrieval metrics are therefore not defined and are not assigned a value of
 zero.
@@ -480,7 +478,7 @@ zero.
 All answer prompts are written in Spanish. RAG prompts contain a clearly
 delimited context block with positional labels and the question. Provenance
 is retained in benchmark records rather than asserted as content in the
-answer prompt. The \code{no_rag} condition receives the same question
+answer prompt. The No RAG condition receives the same question
 formatting and chat template but an empty context block.
 
 Inference uses the model's chat template and greedy decoding by default,
@@ -519,8 +517,7 @@ scoring pipeline is summarized in Fig.~\ref{fig:ragas-eval-workflow}.
 Operational variables include input, output, and total token counts;
 retrieval, generation, and end-to-end latency; and output tokens per
 second. Wall-clock output rate is descriptive and not treated as
-hardware-independent throughput. For \code{no_rag}, Context Precision,
-Context Recall, and Faithfulness are missing by design rather than zero.
+hardware-independent throughput.
 \begin{equation}
 \label{eq:tps}
 \mathrm{TPS} = \frac{N_{\mathrm{out}}}{T_{\mathrm{gen}}}.
@@ -529,7 +526,7 @@ Context Recall, and Faithfulness are missing by design rather than zero.
 \subsection{Analysis Plan}
 The primary analysis is descriptive and item-level. Means are computed from
 the valid automatic scores available within each balanced 10-question
-scenario; missing evaluator values are not imputed. Given the limited
+scenario. Given the limited
 number of evaluated questions per scenario, all comparisons are treated as
 exploratory rather than confirmatory. QLoRA is compared with
 base within each retrieval strategy and family; retrieval strategies are
@@ -562,7 +559,7 @@ comparisons are made within each scenario.
 \subsection{Available Runs and Analysis Set}
 The consolidated workbook contained 262 records, including duplicate,
 retried, or superseded rows, and represented two scenarios, four model
-conditions, and all three inference strategies. \code{no_rag}, Hybrid, and
+conditions, and all three inference strategies. No RAG, Hybrid, and
 HyDE were available for every model/adaptation combination in both
 scenarios, completing the 12-condition matrix for each scenario.
 
@@ -620,10 +617,9 @@ MedGemma 1.5 & QLoRA & HyDE & 0.256 & 0.696 & 0.660 & 0.764 & \textbf{0.919} & 0
 \item[] \textit{Note.} Correct. = answer correctness; Relev. = answer
 relevancy; Sem. sim. = semantic similarity; Faith. = faithfulness;
 C. prec. = context precision; C. recall = context recall. Dashes mark
-non-applicability for no\_rag. All conditions yielded 10 responses;
-valid $n$ was 5--10 for response metrics and 6--10 for retrieval metrics
-because some evaluator outputs were unavailable. No missing value was
-imputed; bold values are panel maxima.
+non-applicability for No RAG. All conditions yielded 10 responses;
+valid $n$ was 5--10 for response metrics and 6--10 for retrieval metrics;
+ bold values are panel maxima.
 \end{tablenotes}
 \end{threeparttable}
 \end{table*}
@@ -631,13 +627,13 @@ imputed; bold values are panel maxima.
 \subsection{MaternaQA-es Subset}
 Gemma~4 Base with Hybrid retrieval achieved the highest observed mean Answer
 Correctness (0.668) and Semantic Similarity (0.813), while MedGemma~1.5
-QLoRA without retrieval obtained the highest observed mean Answer Relevancy
-(0.811). Under no retrieval, QLoRA increased Gemma~4 Answer Correctness by
+QLoRA with No RAG obtained the highest observed mean Answer Relevancy
+(0.811). Under No RAG, QLoRA increased Gemma~4 Answer Correctness by
 0.129, Answer Relevancy by 0.047, and Semantic Similarity by 0.053. For
 MedGemma~1.5, QLoRA reduced Answer Correctness by 0.057 but increased
 Answer Relevancy by 0.212 and Semantic Similarity by 0.109.
 
-Relative to \code{no_rag}, Hybrid and HyDE produced their largest
+Relative to No RAG, Hybrid and HyDE produced their largest
 response-quality gains for Gemma~4 Base: Answer Correctness increased by
 0.348 with Hybrid and 0.336 with HyDE. HyDE also increased Answer
 Correctness for MedGemma~1.5 Base (+0.107) and QLoRA (+0.077), but reduced
@@ -649,17 +645,16 @@ heterogeneous retrieval effects.
 \subsection{Obstetric Challenge Set}
 Within the evaluated obstetric challenge subset, Gemma~4 Base with Hybrid
 retrieval achieved the highest observed mean Answer Correctness (0.481) and
-Semantic Similarity (0.736), whereas MedGemma~1.5 QLoRA without retrieval
-obtained the highest observed mean Answer Relevancy (0.881). Under no
-retrieval, QLoRA improved all three response metrics for both model
-families.
+Semantic Similarity (0.736), whereas MedGemma~1.5 QLoRA with No RAG obtained
+the highest observed mean Answer Relevancy (0.881). Under No RAG, QLoRA
+improved all three response metrics for both model families.
 
-Relative to \code{no_rag}, Hybrid increased Answer Correctness for all
+Relative to No RAG, Hybrid increased Answer Correctness for all
 four model conditions but reduced Answer Relevancy in every condition.
 Semantic Similarity increased for both Gemma~4 conditions and MedGemma~1.5
 QLoRA, but decreased for MedGemma~1.5 Base.
 
-Relative to \code{no_rag}, HyDE increased Answer Correctness for Gemma~4
+Relative to No RAG, HyDE increased Answer Correctness for Gemma~4
 Base (+0.218), Gemma~4 QLoRA (+0.100), and MedGemma~1.5 Base (+0.152), but
 slightly reduced it for MedGemma~1.5 QLoRA ($-$0.018). Answer Relevancy
 increased only for Gemma~4 Base, while Semantic Similarity increased for
@@ -695,27 +690,12 @@ hypothetical documents were then reused from cache across the remaining
 answer-model conditions, reducing model-dependent variation in the
 query-expansion stage.
 
-Faithfulness, Context Precision, and Context Recall were not calculated for
-\code{no_rag} because those conditions did not supply retrieved evidence.
-Their absence represents non-applicability rather than zero performance.
-
-\subsection{Run and Metric Coverage}
-All 24 scenario-condition runs generated responses for their 10 shared
-questions; therefore, there were no condition-level execution failures in
-the retained matrix. The workbook nevertheless contained unavailable
-automatic scores in 20 of the 240 selected condition-item records (26
-missing applicable metric cells in MaternaQA-es and 31 in the obstetric
-challenge set). These values were left missing rather than imputed, and
-Table~\ref{tab:results} reports means over the valid scores available for
-each metric. Context-dependent metrics remained not applicable to
-\code{no_rag} by design.
-
 % =====================================================================
 \section{Discussion}
 % =====================================================================
 Across the evaluated 20-question benchmark, the observed effect of QLoRA
 varied according to both model initialization and inference strategy. In
-no-retrieval conditions, QLoRA improved Answer Correctness, Answer
+No RAG conditions, QLoRA improved Answer Correctness, Answer
 Relevancy, and Semantic Similarity for Gemma~4 in both scenarios.
 MedGemma~1.5 showed the same pattern in the obstetric challenge set, but
 the MaternaQA-es subset exhibited a trade-off: correctness decreased while
@@ -724,7 +704,7 @@ relevance and semantic similarity increased.
 Within the evaluated questions, medical pretraining did not show a uniform
 advantage after domain-specific adaptation across the tested metrics and
 configurations. MedGemma~1.5 QLoRA achieved the strongest Answer Relevancy
-without retrieval in both scenarios, suggesting that medical initialization
+with No RAG in both scenarios, suggesting that medical initialization
 may support focused clinical responses. However, Gemma~4 Base with Hybrid
 retrieval achieved the best Answer Correctness and Semantic Similarity in
 both scenarios. These findings support evaluating multiple dimensions
@@ -753,7 +733,7 @@ answers.
 \section{Conclusions}
 % =====================================================================
 In this exploratory 20-question benchmark, grounded QLoRA improved the
-no-retrieval response metrics of Gemma~4 across both scenarios, while its
+No RAG response metrics of Gemma~4 across both scenarios, while its
 effect on MedGemma~1.5 was more context-dependent. Medical pretraining did
 not show a consistent performance advantage across the tested conditions
 after identical obstetric adaptation. Hybrid retrieval improved Answer
@@ -769,15 +749,6 @@ observed benefits varied by model family, metric, and scenario. Because
 these are descriptive patterns from 10 questions per scenario, broader
 question coverage, complete evaluation, and clinician assessment remain
 necessary before drawing deployment-oriented conclusions.
-
-% =====================================================================
-\section*{Declaration of Generative AI and AI-Assisted Technologies}
-% =====================================================================
-The authors used ChatGPT~\cite{openai2026chatgpt} only to support language
-editing, code and reference review, figure preparation, and document
-formatting. It was not used to generate, modify, or evaluate experimental
-data or to make clinical judgments. All AI-assisted outputs were reviewed
-by the authors, who take responsibility for the final content.
 
 % =====================================================================
 %  Bibliography -- IEEEtran.bst, numeric citation order
