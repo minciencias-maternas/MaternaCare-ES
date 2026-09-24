@@ -20,6 +20,8 @@
 
 > [!IMPORTANT]
 > Este repositorio documenta el proceso completo de fine-tuning de modelos de lenguaje para QA clínico en español. Incluye scripts de entrenamiento QLoRA, inferencia, evaluación con métricas basadas en LLM-as-judge (RAGAS) y publicación de adapters en Hugging Face.
+>
+> Los modelos/adapters, el dataset, las dependencias y los servicios de API tienen condiciones propias. La licencia MIT indicada aquí cubre únicamente el código y la documentación originales del repositorio. Consulta [NOTICE](./NOTICE) antes de descargar o redistribuir materiales.
 
 ## ¿Qué es MaternaCare-ES?
 
@@ -342,17 +344,19 @@ dataset = load_dataset("iue-edu/MaternaQA-es")
 
 - Los modelos entrenados son recursos de investigación; **no reemplazan criterio clínico** ni guías médicas oficiales.
 - Las predicciones generadas deben interpretarse como asistencia para investigación, no como recomendaciones médicas.
-- Este repositorio se publica bajo licencia MIT. Para el dataset y los modelos/adapters, revisa la licencia declarada en cada repositorio de Hugging Face.
+- La licencia MIT cubre únicamente el código y la documentación originales del repositorio; no concede derechos sobre modelos, adapters, dataset, documentos fuente, dependencias o APIs de terceros.
+- MedGemma y sus adapters están sujetos a las condiciones HAI-DEF, incluidas restricciones de uso y obligaciones para distribuir derivados. Revisa [NOTICE](./NOTICE) y la copia de términos en [`licenses/HAI-DEF-TERMS.md`](./licenses/HAI-DEF-TERMS.md).
+- MaternaQA-es declara Apache 2.0, pero los derechos de los documentos fuente deben verificarse por separado antes de redistribuirlos o redistribuir sus derivados.
 
 ## Licencia
 
-Este proyecto se distribuye bajo la licencia MIT. Ver [LICENSE](./LICENSE) para más detalles.
+El código y la documentación originales se distribuyen bajo la licencia MIT. Ver [LICENSE](./LICENSE) y [NOTICE](./NOTICE) para el alcance y las condiciones de terceros.
 
 ---
 
 <div align="center">
 
-**Institución Universitaria de Envigado (IUE)** · **MinCiencias** · Colombia
+**GITESI** · **Institución Universitaria de Envigado (IUE)** · **MinCiencias** · Colombia
 
 Fine-tuning de LLMs para QA clínico en español sobre embarazo y maternidad.
 

@@ -1,0 +1,23 @@
+name: Question
+description: Ask a project question that does not fit a bug report or feature request.
+title: "[Question]: "
+labels: [question]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Discussions are not enabled for this repository. Search existing issues first, and do not include credentials, private data, or identifiable health information.
+  - type: textarea
+    id: question
+    attributes:
+      label: Question
+      description: Ask a focused question and include the relevant repository area or documented workflow.
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and what you tried
+      description: Share relevant steps and sanitized error output, if applicable.
+    validations:
+      required: false
