@@ -33,7 +33,7 @@
 % it breaks the column instead of letting the text straddle the float.
 \usepackage{needspace}
 \usepackage{booktabs}          % \toprule \midrule \bottomrule \cmidrule
-\usepackage{tabularx}          % width-adaptive X columns
+
 \usepackage{array}
 \usepackage[caption=false]{subfig}  % sub-figures; caption=false is required
                                     % because the caption package must not be
@@ -290,24 +290,24 @@ scenario-condition runs were represented in the analysis.
 \caption{Prespecified Factorial Experiment Matrix}
 \label{tab:factorial}
 \scriptsize
-\begin{tabularx}{\textwidth}{@{}c l l l X@{}}
+\begin{tabular*}{\textwidth}{@{\extracolsep{\fill}}c l l l p{0.40\textwidth}@{}}
 \toprule
 ID & Model family & Adaptation & Retrieval & Condition definition \\
 \midrule
-C01 & Gemma 4 & Base & \code{no_rag} & Base weights; no retrieved context \\
+C01 & Gemma 4 & Base & no\_rag & Base weights; no retrieved context \\
 C02 & Gemma 4 & Base & Hybrid & Base weights; canonical Hybrid retrieval \\
 C03 & Gemma 4 & Base & HyDE & Base weights; canonical independent HyDE retrieval \\
-C04 & Gemma 4 & QLoRA & \code{no_rag} & Grounded QLoRA adapter; no retrieved context \\
+C04 & Gemma 4 & QLoRA & no\_rag & Grounded QLoRA adapter; no retrieved context \\
 C05 & Gemma 4 & QLoRA & Hybrid & Grounded QLoRA adapter; canonical Hybrid retrieval \\
 C06 & Gemma 4 & QLoRA & HyDE & Grounded QLoRA adapter; canonical independent HyDE retrieval \\
-C07 & MedGemma 1.5 & Base & \code{no_rag} & Base weights; no retrieved context \\
+C07 & MedGemma 1.5 & Base & no\_rag & Base weights; no retrieved context \\
 C08 & MedGemma 1.5 & Base & Hybrid & Base weights; canonical Hybrid retrieval \\
 C09 & MedGemma 1.5 & Base & HyDE & Base weights; canonical independent HyDE retrieval \\
-C10 & MedGemma 1.5 & QLoRA & \code{no_rag} & Grounded QLoRA adapter; no retrieved context \\
+C10 & MedGemma 1.5 & QLoRA & no\_rag & Grounded QLoRA adapter; no retrieved context \\
 C11 & MedGemma 1.5 & QLoRA & Hybrid & Grounded QLoRA adapter; canonical Hybrid retrieval \\
 C12 & MedGemma 1.5 & QLoRA & HyDE & Grounded QLoRA adapter; canonical independent HyDE retrieval \\
 \bottomrule
-\end{tabularx}
+\end{tabular*}
 \begin{tablenotes}[flushleft]
 \item[] \textit{Note.} The complete design is 2 model families $\times$
 2 adaptation states $\times$ 3 retrieval strategies. All 12 conditions were
@@ -317,15 +317,12 @@ observed in each of the two evaluation scenarios.
 \end{table*}
 
 \subsection{Grounded QLoRA Fine-Tuning}
-QLoRA is the parameter-adaptation method in the benchmark. It combines
-quantized base-model weights with trainable low-rank adapter matrices,
-reducing memory requirements while preserving the base model as a
-separately identifiable initialization~\cite{dettmers2023qlora}.
-Fig.~\ref{fig:qlora} contrasts full fine-tuning, which updates the base
-weights, with LoRA, which freezes them and learns a low-rank update. In this
-benchmark, QLoRA applies low-rank adaptation to quantized base weights; the
-NF4 quantization and BF16 computation settings are specified in
-Table~\ref{tab:qlora-config}. RAFT is a related method for domain-specific
+QLoRA~\cite{dettmers2023qlora} is the parameter-adaptation method in the
+benchmark: trainable low-rank adapters on quantized base weights, which
+keeps the base model as a separately identifiable initialization.
+Fig.~\ref{fig:qlora} contrasts it with full fine-tuning, and
+Table~\ref{tab:qlora-config} specifies the NF4 quantization and BF16
+computation settings. RAFT is a related method for domain-specific
 RAG but is not an additional condition in this benchmark~\cite{zhang2024raft}.
 
 % The paragraph below must not straddle the Table I float on the next page:
@@ -345,7 +342,7 @@ used to produce the evaluated adapters.
 \begin{threeparttable}
 \caption{QLoRA Fine-Tuning Configuration Used for Both Model Families}
 \label{tab:qlora-config}
-\small
+\scriptsize
 % tabular* + \extracolsep{\fill} spans exactly \textwidth: the model
 % identifiers do not fit a single column, so the float is table* and the
 % columns are spread deliberately instead of being hand-padded.
@@ -353,14 +350,14 @@ used to produce the evaluated adapters.
 \toprule
 Parameter & Gemma 4 E2B QLoRA & MedGemma 1.5 4B QLoRA \\
 \midrule
-Base model & \code{google/gemma-4-E2B-it} & \code{google/medgemma-1.5-4b-it} \\
-Training representation & \code{sft_grounded} & \code{sft_grounded} \\
+Base model & google/gemma-4-E2B-it & google/medgemma-1.5-4b-it \\
+Training representation & sft\_grounded & sft\_grounded \\
 Train / validation examples & 5,093 / 306 & 5,093 / 306 \\
 Quantization & 4-bit NF4, double quantization & 4-bit NF4, double quantization \\
 LoRA rank ($r$) & 16 & 16 \\
 LoRA alpha & 16 & 16 \\
 LoRA dropout & 0.05 & 0.05 \\
-Target modules & All linear (\code{all-linear}) & All linear (\code{all-linear}) \\
+Target modules & All linear (all-linear) & All linear (all-linear) \\
 Learning rate & $2 \times 10^{-4}$ & $2 \times 10^{-4}$ \\
 Batch size & 1 per device & 1 per device \\
 Gradient accumulation steps & 8 & 8 \\
@@ -402,8 +399,7 @@ RAG is the second core method~\cite{lewis2020retrieval}. The protocol treats
 retrieval strategy as a reproducible experimental factor. The no-retrieval
 control, Hybrid retrieval, and independent HyDE differ in how evidence is
 prepared before the answer model receives the question and context.
-Hypothetical text is used only for query expansion; retrieved corpus chunks
-form the evidence supplied to the answer model. Fig.~\ref{fig:rag-types}
+Hypothetical text is used only for query expansion. Fig.~\ref{fig:rag-types}
 summarizes the three variants.
 
 % --- Single-column RAG variants figure, caption below ----------------
@@ -444,23 +440,21 @@ SentenceTransformer produces normalized dense vectors on CPU with
 Because no approximate vector index is created, search is exhaustive exact
 cosine search. The default dense retrieval depth is $k = 5$.
 
-Sparse retrieval is Okapi BM25 implemented with
-\code{rank_bm25/BM25Okapi} over Unicode lowercase word tokens. BM25
-supplies sparse term-weight scores and ranked chunk identifiers. Retrieval
-outputs are recorded before answer generation so retrieval quality and
-latency can be analyzed separately from response generation.
+Sparse retrieval is Okapi BM25 (\code{rank_bm25/BM25Okapi}) over Unicode
+lowercase word tokens. Retrieval outputs are recorded before answer
+generation so retrieval quality and latency can be analyzed separately from
+response generation.
 
 \subsubsection{Canonical Hybrid Retrieval}
-Hybrid retrieval fuses dense and BM25 rankings. For a requested final depth
-$k$, the candidate depth is:
+Hybrid retrieval fuses dense and BM25 rankings by reciprocal rank fusion
+with \code{rank_constant=60}~\cite{cormack2009reciprocal}. For a requested
+final depth $k$, the candidate depth is:
 \begin{equation}
 \label{eq:candidate-depth}
 k_c = \min(\lvert C \rvert,\, \max(4k, 50)).
 \end{equation}
-Each retriever contributes ranked candidates, and the union is fused by
-deterministic reciprocal rank fusion with \code{rank_constant=60}%
-~\cite{cormack2009reciprocal}. Ties are broken by stable chunk ID. The
-final top-$k$ chunks are supplied to the answer model.
+Ties are broken by stable chunk ID, and the final top-$k$ chunks are
+supplied to the answer model.
 
 \subsubsection{Canonical Independent HyDE Retrieval}
 HyDE~\cite{gao2023precise} uses a dedicated hypothetical-document
@@ -468,17 +462,13 @@ generator, separate from the answer model, to produce a Spanish
 clinical-document passage from the question. The retained runs used the
 OpenAI provider with \code{gpt-5-mini-2025-08-07}. Hypothetical documents
 were generated once per question and cached for reuse across answer-model
-conditions; retrieved corpus chunks, rather than the potentially
-hallucinatory hypothetical text itself, were supplied as evidence to the
-answer model~\cite{ji2023survey}. The request-side output limit must be
-reported from the run configuration because the consolidated workbook
-records token usage but not that maximum setting.
-
-The cache is separated by dataset mode, provider, and generator model; row
-reuse checks \code{qa_id} and a question hash. Dense retrieval embeds the
-hypothetical text with BGE-M3 and searches the corpus by exact cosine
-similarity. Retrieved chunks, not the hypothetical text, are supplied as
-evidence to the answer model.
+conditions; dense retrieval then embeds that text with BGE-M3 and searches
+the corpus by exact cosine similarity. Only the retrieved corpus chunks,
+not the hypothetical text, are supplied as evidence to the answer
+model~\cite{ji2023survey}. The cache is separated by dataset mode, provider,
+and generator model, and row reuse checks \code{qa_id} and a question hash.
+The request-side output limit could not be recovered from the retained run
+records.
 
 \subsubsection{No-Retrieval Control}
 The no-retrieval control (\code{no_rag}) returns no retrieved contexts and
@@ -523,13 +513,8 @@ Faithfulness, Answer Relevancy, Answer Correctness, and Semantic Similarity.
 \subsubsection{RAG Benchmark Evaluator}
 The RAG evaluator uses six metrics: Context Precision, Context Recall,
 Faithfulness, Answer Relevancy, Answer Correctness, and Semantic
-Similarity. Context Precision evaluates whether relevant chunks are ranked
-before irrelevant ones. Context Recall estimates how much
-reference-supporting information is retrieved. Faithfulness measures
-whether claims are supported by supplied context. Answer Relevancy measures
-whether the response addresses the question. Answer Correctness compares
-the response with the reference answer, and Semantic Similarity measures
-their semantic alignment.
+Similarity. Their definitions follow RAGAS and are not restated here; the
+scoring pipeline is summarized in Fig.~\ref{fig:ragas-eval-workflow}.
 
 Operational variables include input, output, and total token counts;
 retrieval, generation, and end-to-end latency; and output tokens per
@@ -545,9 +530,8 @@ Context Recall, and Faithfulness are missing by design rather than zero.
 The primary analysis is descriptive and item-level. Means are computed from
 the valid automatic scores available within each balanced 10-question
 scenario; missing evaluator values are not imputed. Given the limited
-number of evaluated questions per scenario, all comparisons are interpreted
-as exploratory descriptive patterns and are not intended to establish
-definitive model or retrieval-strategy superiority. QLoRA is compared with
+number of evaluated questions per scenario, all comparisons are treated as
+exploratory rather than confirmatory. QLoRA is compared with
 base within each retrieval strategy and family; retrieval strategies are
 contrasted within adaptation and family; and model families are compared
 under matched conditions.
@@ -555,8 +539,7 @@ under matched conditions.
 Duplicate or superseded records were resolved at \code{qa_id} level by
 preferring more complete rows, fewer metric errors, and then the latest row
 position. The summary used the same 10 \code{qa_id} values shared by all 12
-conditions in each scenario. Project scope, processing time, and variable
-metric coverage motivated a descriptive rather than confirmatory analysis.
+conditions in each scenario.
 
 \subsection{Reproducibility and Experimental Scope}
 Reproducibility requires recording the MaternaQA-es revision,
@@ -570,13 +553,8 @@ NLP~\cite{gallifant2025tripod,bender2018data}.
 QLoRA fine-tuning and local neural-model computations were performed on an
 NVIDIA GeForce RTX 5070 Ti Laptop GPU with 12~GB of dedicated VRAM.
 The comparison comprised 20 questions---10 from MaternaQA-es and 10 from
-\code{sample10}---evaluated across all 12 conditions. MaternaQA-es retained
-grounded source context with the question, whereas \code{sample10}
-contained only the question before retrieved context was added. Because
-scenario differences may reflect both question composition and input
-grounding, direct cross-scenario metric comparisons are not used to infer
-effects of fine-tuning or retrieval. Principal comparisons are made within
-each scenario.
+\code{sample10}---evaluated across all 12 conditions, and all principal
+comparisons are made within each scenario.
 
 % =====================================================================
 \section{Results}
@@ -594,9 +572,7 @@ to identifiers shared by all 12 conditions, the balanced analysis contained
 for the obstetric challenge set. Every condition contributed responses for
 all 10 questions; however, 20 condition-item records contained at least one
 unavailable automatic metric, so means were calculated from valid scores
-without imputation. Accordingly, the results reported below should be
-interpreted as descriptive comparisons across these two 10-question
-evaluation subsets.
+without imputation.
 
 % --- Table III: full-width, caption above, no vertical rules ---------
 \begin{table*}[!t]
@@ -644,7 +620,7 @@ MedGemma 1.5 & QLoRA & HyDE & 0.256 & 0.696 & 0.660 & 0.764 & \textbf{0.919} & 0
 \item[] \textit{Note.} Correct. = answer correctness; Relev. = answer
 relevancy; Sem. sim. = semantic similarity; Faith. = faithfulness;
 C. prec. = context precision; C. recall = context recall. Dashes mark
-non-applicability for \code{no_rag}. All conditions yielded 10 responses;
+non-applicability for no\_rag. All conditions yielded 10 responses;
 valid $n$ was 5--10 for response metrics and 6--10 for retrieval metrics
 because some evaluator outputs were unavailable. No missing value was
 imputed; bold values are panel maxima.
@@ -771,16 +747,7 @@ obstetric challenge set, it improved Context Precision for all four states
 and recovered substantially more Answer Correctness than Hybrid for
 MedGemma~1.5 Base. Better query expansion and evidence ranking therefore
 appear to be enabling factors rather than sufficient conditions for better
-answers. For the MaternaQA-es subset, however, the supporting source
-material was available in the retrieval corpus. These results therefore
-characterize retrieval of available evidence rather than strict
-generalization to completely unseen source documents.
-
-The study evaluated 10 MaternaQA-es questions and 10 obstetric-challenge
-questions across all 12 conditions. MaternaQA-es retained grounded source
-context, whereas \code{sample10} began from question-only records. This
-asymmetry may influence response quality and retrieval effects, so
-conclusions emphasize within-scenario patterns.
+answers.
 
 % =====================================================================
 \section{Conclusions}
@@ -797,17 +764,11 @@ demonstrating a trade-off between reference agreement and directness.
 HyDE completed all planned conditions in both processed scenarios and
 generally produced high Context Precision, but it did not consistently
 improve Answer Correctness, Answer Relevancy, or Semantic Similarity over
-Hybrid retrieval. The retrieval findings should be interpreted as
-evidence-available retrieval performance rather than strict generalization
-to completely unseen source documents. The evidence therefore supports a
-nuanced conclusion: observed benefits varied by model family, metric, and
-scenario. Because the two evaluation scenarios differ in question
-composition and initial grounding, absolute metric differences between them
-should not be interpreted as direct effects of fine-tuning or retrieval.
-Given the limited evaluation of 10 questions per scenario, these findings
-should be considered preliminary, and broader question coverage, complete
-evaluation, and clinician assessment remain necessary before drawing
-deployment-oriented conclusions.
+Hybrid retrieval. The evidence therefore supports a nuanced conclusion:
+observed benefits varied by model family, metric, and scenario. Because
+these are descriptive patterns from 10 questions per scenario, broader
+question coverage, complete evaluation, and clinician assessment remain
+necessary before drawing deployment-oriented conclusions.
 
 % =====================================================================
 \section*{Declaration of Generative AI and AI-Assisted Technologies}
