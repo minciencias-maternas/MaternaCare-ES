@@ -4,41 +4,99 @@ This file identifies important third-party materials used by the project. The
 repository LICENSE applies only to original MaternaCare-ES source code and
 documentation unless a component states otherwise.
 
+Project affiliation
+
+MaternaCare-ES is developed by project contributors affiliated with GITESI
+(research group), Institución Universitaria de Envigado (IUE). This describes
+the team's institutional affiliation; it does not assert that GITESI or IUE is
+the exclusive copyright holder. Copyright notices for individual contributions
+remain applicable.
+
 1. Base models and model derivatives
 
 Gemma 4 E2B IT
   Model: google/gemma-4-E2B-it
   License: Apache License 2.0
-  Terms: https://ai.google.dev/gemma/docs/gemma_4_license
+  Model card: https://huggingface.co/google/gemma-4-E2B-it
 
 MedGemma 1.5 4B IT
   Model: google/medgemma-1.5-4b-it
-  Terms: Health AI Developer Foundations Terms of Use
+  Terms: Health AI Developer Foundations Terms of Use (HAI-DEF)
+  Model card: https://huggingface.co/google/medgemma-1.5-4b-it
   Terms: https://developers.google.com/health-ai-developer-foundations/terms
   Prohibited use policy:
   https://developers.google.com/health-ai-developer-foundations/prohibited-use-policy
 
-MedGemma derivatives must be distributed subject to the Health AI Developer
-Foundations Terms of Use. In particular, recipients must receive a copy of the
-terms, the applicable use restrictions must remain enforceable, and any
-distribution of HAI-DEF or Model Derivatives must include this notice:
+MaternaCare-ES MedGemma adapters are Model Derivatives for purposes of HAI-DEF.
+Do not distribute them unless the distribution method provides each recipient
+with a copy of the HAI-DEF Agreement and makes the Section 3.2 restrictions an
+enforceable condition of use and distribution. A public download link and this
+informational NOTICE alone do not satisfy that requirement. Any distribution
+other than through a Hosted Service must also include the exact HAI-DEF Notice
+below. A copy of the Agreement is included at `licenses/HAI-DEF-TERMS.md`;
+verify it against Google's current online version before each distribution.
 
-HAI-DEF is provided under and subject to the Health AI Developer Foundations Terms of Use found at https://developers.google.com/health-ai-developer-foundations/terms
+Gemma 4 adapters are derivatives of the Gemma 4 base model and remain subject
+to the base model's Apache License 2.0 and applicable model terms. Check the
+specific adapter repository for its declared license and files.
 
-2. Dataset
+2. Embedding and auxiliary models
 
-MaternaQA-es is distributed by its canonical repository under Apache 2.0,
+BAAI BGE-M3
+  Model: BAAI/bge-m3
+  License: MIT
+  Model card: https://huggingface.co/BAAI/bge-m3
+
+Qwen2.5 1.5B Instruct (optional HyDE generation)
+  Model: Qwen/Qwen2.5-1.5B-Instruct
+  License: Apache License 2.0
+  Model card: https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct
+
+3. Dataset
+
+MaternaQA-es declares Apache License 2.0 in its Hugging Face dataset repository,
 subject to the terms and constraints of the original source materials:
   https://huggingface.co/datasets/iue-edu/MaternaQA-es
 
-3. Software dependencies
+The dataset documentation states that it contains material derived from
+third-party source documents. The project has not verified the redistribution
+rights for every source PDF. The dataset's Apache declaration does not itself
+clear rights in those underlying materials; check the source-document licenses
+and permissions before redistributing the PDFs, extracted text, or derivatives.
 
-Dependencies listed in requirements*.txt are third-party software and remain
-under their respective licenses. Their licenses are not changed by this
-repository license. Consult each package distribution for its complete notice
-and license text.
+4. Evaluation software and dependencies
 
-4. Responsible use
+RAGAS (used for LLM-based evaluation) is licensed under Apache License 2.0:
+https://github.com/vibrantlabsai/ragas/blob/main/LICENSE
+
+LiteLLM (used for optional model/API routing) licenses its non-enterprise
+repository portions under MIT; enterprise-directory components have separate
+terms. See the package/repository license and the scope of the components used:
+https://github.com/BerriAI/litellm/blob/main/LICENSE
+
+All packages listed in requirements files, including frameworks and
+transitive dependencies, remain under their own licenses. This NOTICE is not
+an exhaustive software bill of materials; consult the installed package
+metadata and bundled notices before redistributing dependency code.
+
+5. Hosted APIs
+
+OpenAI models referenced by the evaluation and embedding code
+(including gpt-4o-mini, gpt-5.4-mini, text-embedding-3-small, and
+text-embedding-3-large) are accessed as hosted services. They are not
+open-source model weights included with this repository. API use is governed
+by OpenAI's current Business Terms and service-specific terms:
+https://openai.com/policies/business-terms/
+https://openai.com/policies/service-terms/
+
+6. HAI-DEF distribution Notice
+
+For any non-Hosted-Service distribution of HAI-DEF or a Model Derivative, the
+distribution must include this exact notice, as required by the HAI-DEF Terms:
+
+HAI-DEF is provided under and subject to the Health AI Developer Foundations Terms of Use found at https://developers.google.com/health-ai-developer-foundations/terms
+
+7. Responsible use
 
 The models, adapters, and dataset are research artifacts. They must not be
 used for diagnosis, treatment, triage, patient management, or other clinical
